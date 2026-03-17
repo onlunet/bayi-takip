@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bayi Portal - Bayi Girisi</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div class="bg-accent"></div>
+    <header class="topbar">
+      <div>
+        <div class="brand">Bayi Portal</div>
+        <div class="subtitle">Bayi paneli</div>
+      </div>
+      <div class="top-actions">
+        <span id="dealerStatus" class="pill">Giris bekleniyor</span>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar">
+        <div class="sidebar-title">Bayi Menuleri</div>
+        <div class="sidebar-group">
+          <button class="nav-btn dealer-nav-btn active" data-target="dealer-home">Ana Sayfa</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-catalog">Urun Katalogu</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-order-create">Siparis Ver</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-order-history">Siparis Gecmisi</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-assigned-products">Bana Verilen Urunler</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-estimated-stock">Tahmini Stok</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-accounting">Cari Hesabim</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-integrations">XML / API Bilgilerim</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-profile">Profil / Ayarlar</button>
+        </div>
+      </nav>
+
+      <main class="container">
+        <section class="section dealer-section active" data-section="dealer-home">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Ana Sayfa</h2>
+              <p>API anahtariniz ile giris yapin ve panelinizi aktif edin.</p>
+            </div>
+            <div class="panel-body row">
+              <input id="apiKey" placeholder="API Key" />
+              <input id="markupPercent" placeholder="Kar marji %" type="number" step="0.01" />
+              <button id="login" class="btn">Giris</button>
+              <button id="loadProducts" class="btn ghost">Urunleri Yukle</button>
+              <button id="downloadXml" class="btn ghost">XML Indir</button>
+            </div>
+            <div class="panel-body">
+              <div class="summary" id="dealerInfo">-</div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-catalog">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Urun Katalogu</h2>
+              <p>Firma bazli fiyatlariniz.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="dealerProductsTable"></table>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-order-create">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Siparis Ver</h2>
+              <p>Kalem ekleyerek siparis olusturun.</p>
+            </div>
+            <div class="panel-body">
+              <div id="dealerOrderItems"></div>
+              <div class="row">
+                <button id="dealerAddItem" class="btn ghost">Satir Ekle</button>
+                <button id="dealerSubmitOrder" class="btn">Siparis Ver</button>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-order-history">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Siparis Gecmisi</h2>
+              <p>Verdiginiz siparislerin listesi.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="dealerOrderHistoryTable"></table>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-assigned-products">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Bana Verilen Urunler</h2>
+              <p>Bayiye atanmis katalog urunleri.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="dealerAssignedProductsTable"></table>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-estimated-stock">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Tahmini Stok</h2>
+              <p>Sevk ve satis akisina gore takip ekrani.</p>
+            </div>
+            <div class="panel-body">
+              <div class="summary" id="dealerEstimatedStockSummary">Tahmini stok takibi icin son sevkiyat ve satislar baz alinmaktadir.</div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-accounting">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Cari Hesabim</h2>
+              <p>Guncel bakiye.</p>
+            </div>
+            <div class="panel-body">
+              <div class="summary" id="dealerLedger">-</div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-integrations">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>XML / API Bilgilerim</h2>
+              <p>Katalog feed ve baglanti adimlari.</p>
+            </div>
+            <div class="panel-body">
+              <ol class="guide-list">
+                <li>API key girerek giris yapin.</li>
+                <li>Urunleri Yukle ile katalogu guncelleyin.</li>
+                <li>XML Indir ile feed baglantisini alin.</li>
+              </ol>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-profile">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Profil / Ayarlar</h2>
+              <p>Bayi hesap bilgisi.</p>
+            </div>
+            <div class="panel-body">
+              <div class="summary" id="dealerAccountInfo">-</div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="/dealer.js"></script>
+  </body>
+</html>

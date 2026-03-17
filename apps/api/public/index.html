@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bayi Portal - Yonetim Paneli</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div class="bg-accent"></div>
+    <header class="topbar">
+      <div>
+        <div class="brand">Bayi Portal</div>
+        <div class="subtitle">Stok, Siparis, Cari ve Analiz</div>
+      </div>
+      <div class="top-actions">
+        <input id="adminApiKey" class="input-inline" placeholder="Yonetim API Key" />
+        <button id="saveAdminApiKey" class="btn ghost">Key Kaydet</button>
+        <span id="health" class="pill">API: kontrol ediliyor</span>
+        <button id="refreshAll" class="btn ghost">Tumunu Yenile</button>
+      </div>
+    </header>
+
+    <div class="app-layout">
+      <nav class="sidebar">
+        <div class="sidebar-title">Ana Menu</div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">1. Dashboard</div>
+          <button class="nav-btn active" data-target="overview">Dashboard</button>
+          <button class="nav-btn" data-target="reports">Bugunku satis</button>
+          <button class="nav-btn" data-target="stock">Tahmini bayi stok uyarilari</button>
+          <button class="nav-btn" data-target="stock">Kritik depo stoklari</button>
+          <button class="nav-btn" data-target="ledger">Tahsilat bekleyen bakiyeler</button>
+          <button class="nav-btn" data-target="dispatch">Son sevkiyatlar</button>
+          <button class="nav-btn" data-target="production">Uretim plani uyarilari</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">2. Urun Yonetimi</div>
+          <button class="nav-btn" data-target="products">Urun Listesi</button>
+          <button class="nav-btn" data-target="products">Yeni Urun Ekle</button>
+          <button class="nav-btn" data-target="categories">Kategoriler</button>
+          <button class="nav-btn" data-target="variants">Varyasyonlar</button>
+          <button class="nav-btn" data-target="prices">Fiyat Listeleri</button>
+          <button class="nav-btn" data-target="gallery">Urun Resimleri / Galeri</button>
+          <button class="nav-btn" data-target="integrations">XML / Katalog Ayarlari</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">3. Bayiler / Firmalar</div>
+          <button class="nav-btn" data-target="dealers">Bayi Listesi</button>
+          <button class="nav-btn" data-target="dealers">Yeni Bayi Ekle</button>
+          <button class="nav-btn" data-target="dealers">Bayi Detayi</button>
+          <button class="nav-btn" data-target="prices">Bayi Fiyat Kurallari</button>
+          <button class="nav-btn" data-target="woo">Bayi API / Entegrasyon Ayarlari</button>
+          <button class="nav-btn" data-target="integrations">Bayi XML Ayarlari</button>
+          <button class="nav-btn" data-target="stock">Bayi Tahmini Stoklari</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">4. Stok Yonetimi</div>
+          <button class="nav-btn" data-target="stock">Genel Stok Gorunumu</button>
+          <button class="nav-btn" data-target="stock">Depo Stoklari</button>
+          <button class="nav-btn" data-target="stock">Bayi Tahmini Stoklari</button>
+          <button class="nav-btn" data-target="stock">Stok Hareketleri</button>
+          <button class="nav-btn" data-target="stock">Stok Duzeltme</button>
+          <button class="nav-btn" data-target="stock">Iade Islemleri</button>
+          <button class="nav-btn" data-target="stock">Kritik Stok Uyarilari</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">5. Sevkiyat</div>
+          <button class="nav-btn" data-target="dispatch">Sevkiyat Listesi</button>
+          <button class="nav-btn" data-target="dispatch">Yeni Sevkiyat Olustur</button>
+          <button class="nav-btn" data-target="dispatch">Irsaliyeler</button>
+          <button class="nav-btn" data-target="dispatch">Taslak Sevkiyatlar</button>
+          <button class="nav-btn" data-target="dispatch">Iptal Edilen Sevkiyatlar</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">6. Siparisler / Satislar</div>
+          <button class="nav-btn" data-target="orders">Tum Siparisler</button>
+          <button class="nav-btn" data-target="reports">Kanal Bazli Siparisler</button>
+          <button class="nav-btn" data-target="woo">WooCommerce Siparisleri</button>
+          <button class="nav-btn" data-target="orders">Manuel Bildirilen Satislar</button>
+          <button class="nav-btn" data-target="unmapped">Eslesmeyen Urunler</button>
+          <button class="nav-btn" data-target="unmapped-summary">Eslesmeyen Urun Ozeti</button>
+          <button class="nav-btn" data-target="integrations">Ice Aktarim Gecmisi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">7. Cari Hesap / Muhasebe</div>
+          <button class="nav-btn" data-target="ledger">Cari Listesi</button>
+          <button class="nav-btn" data-target="ledger">Firma Ekstresi</button>
+          <button class="nav-btn" data-target="ledger">Tahsilatlar</button>
+          <button class="nav-btn" data-target="ledger">Borc / Alacak Hareketleri</button>
+          <button class="nav-btn" data-target="ledger">Bakiye Ozeti</button>
+          <button class="nav-btn" data-target="ledger">Vade Takibi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">8. Uretim Planlama</div>
+          <button class="nav-btn" data-target="production">Uretim Onerileri</button>
+          <button class="nav-btn" data-target="production">Urun Bazli Talep Analizi</button>
+          <button class="nav-btn" data-target="production">Son 30 Gun Satis Analizi</button>
+          <button class="nav-btn" data-target="production">Stokta Kac Gun Kaldi</button>
+          <button class="nav-btn" data-target="production">Uretim Partileri</button>
+          <button class="nav-btn" data-target="production">Son Kullanma / Parti Takibi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">9. Raporlar</div>
+          <button class="nav-btn" data-target="reports">Satis Ozeti</button>
+          <button class="nav-btn" data-target="reports">Urun Performansi</button>
+          <button class="nav-btn" data-target="reports">Bayi Performansi</button>
+          <button class="nav-btn" data-target="reports">Stok Raporu</button>
+          <button class="nav-btn" data-target="reports">Sevkiyat Raporu</button>
+          <button class="nav-btn" data-target="reports">Cari Raporu</button>
+          <button class="nav-btn" data-target="reports">Donemsel Karsilastirmalar</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">10. Entegrasyonlar</div>
+          <button class="nav-btn" data-target="woo">WooCommerce</button>
+          <button class="nav-btn" data-target="mapping">Urun Eslestirme</button>
+          <button class="nav-btn" data-target="integrations">Shopify</button>
+          <button class="nav-btn" data-target="integrations">Pazaryeri Entegrasyonlari</button>
+          <button class="nav-btn" data-target="integrations">XML Feed Yonetimi</button>
+          <button class="nav-btn" data-target="users">API Anahtarlari</button>
+          <button class="nav-btn" data-target="unmapped">Entegrasyon Loglari</button>
+          <button class="nav-btn" data-target="integrations">Senkronizasyon Durumu</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">11. Kullanicilar ve Yetkiler</div>
+          <button class="nav-btn" data-target="users">Kullanici Listesi</button>
+          <button class="nav-btn" data-target="users">Yeni Kullanici</button>
+          <button class="nav-btn" data-target="users">Roller ve Yetkiler</button>
+          <button class="nav-btn" data-target="users">API Kullanicilari</button>
+          <button class="nav-btn" data-target="users">Oturum Gecmisi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">12. Sistem</div>
+          <button class="nav-btn" data-target="settings">Genel Ayarlar</button>
+          <button class="nav-btn" data-target="overview">Sirket Bilgileri</button>
+          <button class="nav-btn" data-target="stock">Depolar</button>
+          <button class="nav-btn" data-target="stock">Lokasyonlar</button>
+          <button class="nav-btn" data-target="industry">Sektor Profilleri</button>
+          <button class="nav-btn" data-target="industry">Dinamik Alanlar</button>
+          <button class="nav-btn" data-target="industry">Sektor Fiyat Kurallari</button>
+          <button class="nav-btn" data-target="industry">Workflow Sablonlari</button>
+          <button class="nav-btn" data-target="industry">Rapor Presetleri</button>
+          <button class="nav-btn" data-target="system">Audit Log</button>
+          <button class="nav-btn" data-target="system">Yedekleme / Disa Aktarim</button>
+          <button class="nav-btn" data-target="settings">Sistem Loglari</button>
+          <button class="nav-btn" data-target="saas">Platform / SaaS</button>
+        </div>
+      </nav>
+
+      <main class="container">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Firma ve Bayi Secimi</h2>
+            <p>Islemler secili firma ve bayi uzerinden yurur.</p>
+          </div>
+          <div class="panel-body row">
+            <select id="companySelect"></select>
+            <select id="dealerSelect"></select>
+            <button id="reloadCompanies" class="btn">Firmalari Yenile</button>
+          </div>
+        </section>
+
+        <section class="section active" data-section="overview">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Genel Bakis</h2>
+                <p>Secili firma icin hizli kontrol.</p>
+              </div>
+              <div class="panel-body">
+                <div class="summary" id="overviewSummary">Veriler yukleniyor...</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Ilk Kurulum Akisi</h2>
+                <p>Yeni kullanici icin en dogru baslangic adimlari.</p>
+              </div>
+              <div class="panel-body">
+                <ol class="guide-list">
+                  <li>Firma ve bayi secimi yapin.</li>
+                  <li>Firma, bayi, urun ve depo tanimlarini tamamlayin.</li>
+                  <li>Woo baglantisini ekleyip sync calistirin.</li>
+                  <li>Eslesmeyen urunleri urun esleme ekraninda baglayin.</li>
+                  <li>Raporlar ekranindan API satis, sevk ve kalan stogu kontrol edin.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Firma Ayarlari</h2>
+                <p>Firma e-posta ve telefon bilgisi.</p>
+              </div>
+              <form id="companySettingsForm" class="panel-body">
+                <input name="name" placeholder="Firma adi" />
+                <input name="email" type="email" placeholder="E-posta" />
+                <input name="phone" placeholder="Telefon" />
+                <div class="row">
+                  <button class="btn" type="submit">Guncelle</button>
+                  <button class="btn danger" type="button" id="deleteCompanyBtn">Firma Sil</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Ayarlari</h2>
+                <p>Marj ve yuvarlama ayarlari.</p>
+              </div>
+              <form id="dealerSettingsForm" class="panel-body">
+                <input name="marginPercent" type="number" step="0.01" placeholder="Marj %" />
+                <select name="roundingType">
+                  <option value="NONE">Yuvarlama yok</option>
+                  <option value="ROUND_90">.90</option>
+                  <option value="ROUND_99">.99</option>
+                  <option value="ROUND_50">.50</option>
+                  <option value="INTEGER">Tam sayi</option>
+                </select>
+                <input name="apiKey" placeholder="API Key" readonly />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Portal</h2>
+                <p>Bayi girisi icin: <strong>/dealer.html</strong> adresini kullanabilirsiniz.</p>
+              </div>
+              <div class="panel-body">
+                <div class="hint">Bayi API anahtari ile giris yaparak siparis ve cari bakiye goruntuleyebilir.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+                <section class="section" data-section="dealers">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayiler / Firmalar</h2>
+                <p>Bayi ve firma yonetimi icin merkezi ekran.</p>
+              </div>
+              <div class="panel-body row">
+                <button class="btn ghost quick-nav" data-target="overview">Firma Bilgileri</button>
+                <button class="btn ghost quick-nav" data-target="dealers">Yeni Bayi / Firma Ekle</button>
+                <button class="btn ghost quick-nav" data-target="prices">Bayi Fiyat Kurallari</button>
+                <button class="btn ghost quick-nav" data-target="woo">Bayi API Ayarlari</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Listesi</h2>
+                <p>Secili firmaya ait bayi kayitlari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="dealerDirectoryTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+<section class="section" data-section="products">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Firma Ekle</h2>
+                <p>Yeni firma/ureticiyi sisteme kaydedin.</p>
+              </div>
+              <form id="companyForm" class="panel-body">
+                <input name="name" placeholder="Firma adi" required />
+                <input name="email" placeholder="E-posta" />
+                <input name="phone" placeholder="Telefon" />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Firma Listesi</h2>
+                <p>Eklenen firmalari duzenleyin veya silin.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="companyTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Ekle</h2>
+                <p>Secili firmaya yeni bayi ekleyin.</p>
+              </div>
+              <form id="dealerForm" class="panel-body">
+                <input name="name" placeholder="Bayi adi" required />
+                <input name="email" placeholder="E-posta" />
+                <input name="phone" placeholder="Telefon" />
+                <input name="taxNumber" placeholder="Vergi no" />
+                <input name="address" placeholder="Adres" />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Kategori Ekle</h2>
+                <p>Urunleri kategori altinda toplayin.</p>
+              </div>
+              <form id="categoryForm" class="panel-body">
+                <input name="name" placeholder="Kategori adi" required />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Urun Ekle</h2>
+                <p>SKU varsa ekleyin, birim secin.</p>
+              </div>
+              <form id="productForm" class="panel-body">
+                <input type="hidden" name="editId" id="productEditId" />
+                <div class="hint" id="productFormMode">Yeni urun modu</div>
+                <select name="categoryId" id="productCategorySelect"></select>
+                <input name="name" placeholder="Urun adi" required />
+                <input name="sku" placeholder="SKU (opsiyonel)" />
+                <div class="row">
+                  <input name="weight" type="number" step="0.01" min="0" placeholder="Gramaj (gr)" />
+                  <input name="basePrice" type="number" step="0.01" min="0" placeholder="Baz fiyat" />
+                </div>
+                <input name="imageUrl" placeholder="Gorsel URL (opsiyonel)" />
+                <input name="imageFile" type="file" accept="image/*" />
+                <div class="hint">Urun kaydinda dosyadan gorsel secerseniz ana resim ve galeriye eklenir.</div>
+                <select name="unit">
+                  <option value="PIECE">Adet</option>
+                  <option value="KG">Kg</option>
+                  <option value="LT">Lt</option>
+                </select>
+                <div class="row">
+                  <button class="btn" id="productFormSubmit">Kaydet</button>
+                  <button class="btn ghost hidden" type="button" id="productFormCancel">Iptal</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Varyasyon Ekle</h2>
+                <p>Urunu varyasyonlarla gruplayin.</p>
+              </div>
+              <form id="variantForm" class="panel-body">
+                <select name="productId" id="variantProductSelect"></select>
+                <input name="name" placeholder="Varyasyon adi (A-1 Kg)" required />
+                <input name="sku" placeholder="SKU (opsiyonel)" />
+                <select name="unit">
+                  <option value="PIECE">Adet</option>
+                  <option value="KG">Kg</option>
+                  <option value="LT">Lt</option>
+                </select>
+                <input name="multiplier" placeholder="Carpan (ornegin 0.5)" type="number" step="0.01" />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Kategori Listesi</h2>
+                <p>Firma bazli tum kategoriler.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="categoryTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Urunler</h2>
+                <p>Eklenen urunler ve silme islemi.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="productTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Varyasyon Listesi</h2>
+                <p>Urunlere bagli tum varyasyonlar.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="variantsTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Urun Galeri</h2>
+                <p>Secili urun icin gorsel ekleyin.</p>
+              </div>
+              <form id="productImageForm" class="panel-body">
+                <select name="productId" id="imageProductSelect"></select>
+                <textarea name="url" placeholder="Gorsel URL (opsiyonel, birden fazla icin satir satir)" rows="3"></textarea>
+                <input name="file" type="file" accept="image/*" multiple />
+                <div class="hint">Galeriye birden fazla dosya veya birden fazla URL toplu olarak ekleyebilirsiniz.</div>
+                <button class="btn">Galeriye Ekle</button>
+              </form>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Galeri Kayitlari</h2>
+                <p>Secili urunun gorselleri.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="productImagesTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="stock">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Depo Ekle</h2>
+                <p>Yeni depo tanimi ekleyin.</p>
+              </div>
+              <form id="warehouseForm" class="panel-body">
+                <input name="name" placeholder="Depo adi" required />
+                <input name="address" placeholder="Adres" />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Stok Hareketi</h2>
+                <p>Urun giris/cikislarini kaydedin.</p>
+              </div>
+              <form id="stockForm" class="panel-body">
+                <select name="warehouseId" id="warehouseSelect"></select>
+                <select name="productId" id="stockProductSelect"></select>
+                <select name="variantId" id="stockVariantSelect"></select>
+                <input name="quantity" placeholder="Miktar" type="number" step="0.01" required />
+                <select name="type">
+                  <option value="PRODUCTION">Uretim</option>
+                  <option value="DISPATCH">Sevk</option>
+                  <option value="SALE">Satis</option>
+                  <option value="RETURN">Iade</option>
+                  <option value="ADJUSTMENT">Duzeltme</option>
+                </select>
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Depo Listesi</h2>
+                <p>Mevcut depolar.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="warehouseTable"></table>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Depo Stok Raporu</h2>
+                <p>Depo bazli stok durumu.</p>
+              </div>
+              <div class="panel-body">
+                <select id="warehouseReportSelect"></select>
+                <table class="table" id="warehouseReportTable"></table>
+                <table class="table" id="warehouseMovementTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Stok Durumu</h2>
+                <p>Secili firmaya ait guncel stoklar.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="stockTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Stok Hareket Listesi</h2>
+              <p>Kaydedilen stok hareketleri.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="stockMovementsTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="orders">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Manuel Siparis</h2>
+                <p>Urun secin, stok otomatik duser.</p>
+              </div>
+              <div class="panel-body">
+                <div id="orderItems"></div>
+                <div class="row">
+                  <button id="addOrderItem" class="btn ghost">Satir Ekle</button>
+                  <button id="submitOrder" class="btn">Siparis Olustur</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Siparis Listesi</h2>
+                <p>Kaydedilen siparisler.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="ordersTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+                <section class="section" data-section="dispatch">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Yeni Sevkiyat Olustur</h2>
+                <p>Depodan bayiye irsaliye/sevkiyat kaydi olusturun.</p>
+              </div>
+              <form id="dispatchForm" class="panel-body">
+                <input type="hidden" name="editId" id="dispatchEditId" />
+                <div class="hint" id="dispatchFormMode">Yeni sevkiyat modu</div>
+                <input name="dispatchNumber" id="dispatchNumber" placeholder="Sevkiyat No" required />
+                <select name="warehouseId" id="dispatchWarehouseSelect"></select>
+                <select name="dealerId" id="dispatchDealerSelect"></select>
+                <input type="date" name="date" id="dispatchDate" />
+                <select name="status" id="dispatchStatus">
+                  <option value="DRAFT">Taslak</option>
+                  <option value="APPROVED">Onayli</option>
+                </select>
+                <div id="dispatchItems"></div>
+                <div class="row">
+                  <button type="button" id="addDispatchItem" class="btn ghost">Sevkiyat Kalemi Ekle</button>
+                  <button class="btn" id="dispatchFormSubmit">Sevkiyati Kaydet</button>
+                  <button type="button" id="dispatchFormCancel" class="btn ghost hidden">Iptal</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sevkiyat Listesi</h2>
+                <p>Taslak, onayli ve iptal sevkiyatlar.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="dispatchTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="production">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Uretim Planlama Asistani</h2>
+                <p>Satis hizi ve stok kapsama gunune gore yonlendirici uretim onerileri.</p>
+              </div>
+              <form id="productionPlanForm" class="panel-body">
+                <div class="row">
+                  <input name="lookbackDays" type="number" min="7" max="180" value="30" placeholder="Gecmis gun" />
+                  <input name="targetCoverageDays" type="number" min="7" max="90" value="30" placeholder="Hedef stok gunu" />
+                  <input name="safetyDays" type="number" min="3" max="60" value="14" placeholder="Guvenli stok gunu" />
+                  <input name="minBatchQuantity" type="number" min="0" step="0.01" value="0" placeholder="Min parti miktari" />
+                </div>
+                <div class="row">
+                  <button class="btn">Plani Hesapla</button>
+                  <button id="exportProductionPlanCsv" type="button" class="btn ghost">Plan CSV Disa Aktar</button>
+                </div>
+              </form>
+              <div class="panel-body">
+                <div id="productionPlanSummary" class="summary">Planlama verisi yukleniyor...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Uretim Onerileri</h2>
+              <p>Kritik urunleri onceliklendirip tek tikla parti formuna aktarabilirsiniz.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="productionPlanTable"></table>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Uretim Partisi Ekle</h2>
+                <p>Parti bazli uretim kaydi olusturun. Depo secilirse stok otomatik artar.</p>
+              </div>
+              <form id="productionBatchForm" class="panel-body">
+                <select name="warehouseId" id="productionWarehouseSelect"></select>
+                <select name="productId" id="productionProductSelect"></select>
+                <input name="batchNumber" placeholder="Parti No" required />
+                <input name="quantity" type="number" step="0.01" placeholder="Miktar" required />
+                <input name="productionDate" type="date" required />
+                <input name="expiryDate" type="date" />
+                <button class="btn">Parti Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Uretim Partileri</h2>
+                <p>SKT ve parti takibini buradan yonetin.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="productionBatchTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="section" data-section="prices">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Yeni Fiyat Listesi</h2>
+                <p>Sarkuteri, toptan, yufkaci gibi farkli listeler olusturun.</p>
+              </div>
+              <form id="priceListForm" class="panel-body">
+                <input name="name" placeholder="Liste adi (ornek: Sarkuteri)" required />
+                <input name="currency" placeholder="Para birimi (TRY)" value="TRY" />
+                <button class="btn">Liste Olustur</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Fiyat Listesi</h2>
+                <p>Secili firmaya ait fiyat listesi.</p>
+              </div>
+              <form id="priceForm" class="panel-body">
+                <select id="priceListManageSelect"></select>
+                <select name="productId" id="priceProductSelect"></select>
+                <select name="variantId" id="priceVariantSelect"></select>
+                <input name="price" type="number" step="0.01" placeholder="Birim fiyat" required />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Fiyat Listesi Kalemleri</h2>
+                <p>Urun bazli fiyatlar.</p>
+              </div>
+              <div class="panel-body row">
+                <button id="copyPriceListLines" class="btn ghost" type="button">Alt Alta Kopyala</button>
+                <button id="exportPriceListPdf" class="btn ghost" type="button">PDF Al</button>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="priceTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Fiyat Listeleri</h2>
+                <p>Olusturdugunuz listeleri duzenleyin veya silin.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="priceListTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Liste Urun Havuzu</h2>
+                <p>Kendi urunlerinizi secili listeye aktarip gram/fiyat guncelleyin.</p>
+              </div>
+              <div class="panel-body row">
+                <label class="hint" style="display:flex; align-items:center; gap:8px;">
+                  <input id="priceImportOverwrite" type="checkbox" />
+                  Var olan fiyatlari urun baz fiyati ile guncelle
+                </label>
+                <button id="importProductsToPriceList" class="btn ghost" type="button">
+                  Urunleri Listeye Aktar
+                </button>
+              </div>
+              <div class="panel-body">
+                <div id="priceCatalogSummary" class="summary">Liste urun havuzu yukleniyor...</div>
+                <table class="table" id="priceCatalogTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayiye Fiyat Listesi Ata</h2>
+                <p>Secili bayiye fiyat listesi atayin.</p>
+              </div>
+              <form id="dealerPriceListForm" class="panel-body">
+                <select id="priceListSelect"></select>
+                <button class="btn">Ata</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Fiyat Listeleri</h2>
+                <p>Secili bayi icin atanmis listeler.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="dealerPriceListTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="woo">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>WooCommerce Entegrasyonu</h2>
+              <p>Secili bayi icin WooCommerce baglantisi.</p>
+            </div>
+            <form id="wooSiteForm" class="panel-body">
+              <input name="baseUrl" placeholder="https://siteniz.com" required />
+              <input name="consumerKey" placeholder="Consumer Key" required />
+              <input name="consumerSecret" placeholder="Consumer Secret" required />
+              <button class="btn">Baglanti Kaydet</button>
+            </form>
+            <div class="panel-body row">
+              <input type="date" id="wooSyncFrom" />
+              <input type="date" id="wooSyncTo" />
+            </div>
+            <div class="panel-body">
+              <p class="hint">Tarih secerseniz sadece o aralik cekilir. "Tum Gecmis" butonu butun siparis gecmisini tarar.</p>
+              <table class="table" id="wooSitesTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="mapping">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Urun Esleme</h2>
+                <p>Harici urunleri kendi urunlerinize esleyin.</p>
+              </div>
+              <form id="mappingForm" class="panel-body">
+                <select name="platform" id="mappingPlatform">
+                  <option value="WOO">WooCommerce</option>
+                  <option value="SHOPIFY">Shopify</option>
+                  <option value="MARKETPLACE">Pazar</option>
+                  <option value="OTHER">Diger</option>
+                </select>
+                <input name="externalProductId" placeholder="Harici Urun ID" required />
+                <input name="externalVariantId" placeholder="Harici Varyasyon ID" />
+                <select name="localProductId" id="mappingProductSelect"></select>
+                <select name="localVariantId" id="mappingVariantSelect"></select>
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2>CSV Esleme</h2>
+                <p>Format: externalProductId,externalVariantId,localProductId,localVariantId</p>
+              </div>
+              <form id="mappingImportForm" class="panel-body">
+                <textarea id="mappingCsv" placeholder="123,456,LOCAL_ID,VAR_ID"></textarea>
+                <div class="row">
+                  <button id="downloadMappingTemplate" type="button" class="btn ghost">CSV Sablon</button>
+                  <button class="btn">Toplu Yukle</button>
+                </div>
+                <div id="mappingImportResult" class="hint"></div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Esleme Listesi</h2>
+                <p>Mevcut eslemeler.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="mappingTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="reports">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Rapor Filtreleri</h2>
+              <p>Tarih araligi secin.</p>
+            </div>
+            <div class="panel-body row">
+              <input type="date" id="reportFrom" />
+              <input type="date" id="reportTo" />
+              <button id="applyReportFilters" class="btn ghost">Filtrele</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Satis Ozeti</h2>
+              <p>Kanala gore satis toplamlari.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="salesTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Woo Urun Satis Ozeti</h2>
+              <p>Woo siparislerinden urun bazli toplam miktar ve tutar.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="wooProductSalesTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Urun Ozeti</h2>
+              <p>Toplam stok hareketleri ve kalan.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="productSummaryTable"></table>
+            </div>
+          </div>
+        </section>
+
+                <section class="section" data-section="integrations">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Entegrasyon Merkezi</h2>
+                <p>Woo, XML, API ve eslestirme akislari tek merkezde.</p>
+              </div>
+              <div class="panel-body row">
+                <button class="btn ghost quick-nav" data-target="woo">WooCommerce</button>
+                <button class="btn ghost quick-nav" data-target="mapping">Urun Eslestirme</button>
+                <button class="btn ghost quick-nav" data-target="unmapped">Entegrasyon Loglari</button>
+              </div>
+              <div class="panel-body">
+                <ol class="guide-list">
+                  <li>WooCommerce baglantisini once aktif edin.</li>
+                  <li>Eslestirilmeyen urunleri mapping ile baglayin.</li>
+                  <li>Senkronizasyon durumunu log ekranindan takip edin.</li>
+                </ol>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Diger Kanal Hazirligi</h2>
+                <p>Shopify, pazaryeri ve diger kanal baglantilarini yonetin.</p>
+              </div>
+              <form id="genericIntegrationForm" class="panel-body">
+                <select name="platform" id="genericIntegrationPlatform">
+                  <option value="SHOPIFY">Shopify</option>
+                  <option value="MARKETPLACE">Pazaryeri</option>
+                  <option value="OTHER">Diger</option>
+                </select>
+                <input name="baseUrl" placeholder="https://kanal-adresi.com" />
+                <input name="consumerKey" placeholder="API Key / Token" />
+                <input name="consumerSecret" placeholder="API Secret (opsiyonel)" />
+                <label class="check-inline">
+                  <input type="checkbox" name="active" checked />
+                  Aktif
+                </label>
+                <button class="btn">Kanal Baglantisi Kaydet</button>
+              </form>
+              <div class="panel-body">
+                <table class="table" id="genericIntegrationTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+<section class="section" data-section="unmapped">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Eslesmeyen Siparis Satirlari</h2>
+                <p>Urunu secip tek tikla kendi urununuzu olusturun.</p>
+              </div>
+              <div class="panel-body">
+                <div class="row">
+                  <select id="integrationStatusFilter">
+                    <option value="">Tumu</option>
+                    <option value="UNMAPPED">UNMAPPED</option>
+                    <option value="SYNCED">SYNCED</option>
+                    <option value="ERROR">ERROR</option>
+                  </select>
+                  <input id="integrationSearch" placeholder="Ara: Siparis veya urun" />
+                  <input type="date" id="integrationFrom" />
+                  <input type="date" id="integrationTo" />
+                </div>
+                <table class="table" id="integrationLogTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Eslesmeyenden Urun Olustur</h2>
+                <p>Ana urun veya varyasyon olarak ekleyip otomatik esleyin.</p>
+              </div>
+              <form id="unmappedCreateForm" class="panel-body">
+                <input id="unmappedSelectedInfo" placeholder="Tablodan 'Urun Ekle' secin" readonly />
+                <input id="unmappedExternalInfo" placeholder="Harici urun bilgisi" readonly />
+
+                <select id="unmappedCreateType" name="createType">
+                  <option value="PRODUCT">Ana Urun Olustur</option>
+                  <option value="VARIANT">Varyasyon Olarak Ekle</option>
+                </select>
+
+                <div id="unmappedParentWrap" class="hidden">
+                  <select id="unmappedParentProductId" name="parentProductId"></select>
+                </div>
+
+                <input id="unmappedName" name="name" placeholder="Urun / Varyasyon adi" required />
+                <input id="unmappedSku" name="sku" placeholder="SKU (opsiyonel)" />
+
+                <select id="unmappedUnit" name="unit">
+                  <option value="PIECE">Adet</option>
+                  <option value="KG">Kg</option>
+                  <option value="LT">Lt</option>
+                </select>
+
+                <div id="unmappedMultiplierWrap" class="hidden">
+                  <input id="unmappedMultiplier" name="multiplier" type="number" step="0.01" value="1" placeholder="Carpan" />
+                </div>
+
+                <button class="btn">Urunu Olustur ve Esle</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="unmapped-summary">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Eslesmeyen Urun Ozeti</h2>
+              <p>API'den gelen eslesmeyen urunlerin urun bazinda satis toplamlari.</p>
+            </div>
+            <div class="panel-body row">
+              <input type="date" id="unmappedSummaryFrom" />
+              <input type="date" id="unmappedSummaryTo" />
+              <button id="refreshUnmappedSummary" class="btn ghost">Ozeti Yenile</button>
+            </div>
+            <div class="panel-body">
+              <div id="unmappedSummaryStats" class="summary">Eslesmeyen urun ozeti yukleniyor...</div>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="unmappedSummaryTable"></table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Uretim Firsati Listesi</h2>
+              <p>En cok satan eslesmeyen urunler icin uretime deger kontrolu.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="unmappedTopTable"></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="ledger">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Cari Hareket</h2>
+                <p>Sevk, tahsilat ve duzeltme.</p>
+              </div>
+              <form id="ledgerForm" class="panel-body">
+                <select name="type">
+                  <option value="DISPATCH">Sevk</option>
+                  <option value="PAYMENT">Tahsilat</option>
+                  <option value="RETURN">Iade</option>
+                  <option value="ADJUSTMENT">Duzeltme</option>
+                </select>
+                <input name="amount" type="number" step="0.01" placeholder="Tutar" required />
+                <input name="note" placeholder="Not" />
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Cari Ozeti</h2>
+                <p>Guncel bakiye ve hareketler.</p>
+              </div>
+              <div class="panel-body">
+                <div id="ledgerSummary" class="summary"></div>
+                <table class="table" id="ledgerTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+                <section class="section" data-section="settings">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sistem Ayarlari Merkezi</h2>
+                <p>Secili firma icin sistem sagligi, veri butunlugu ve disa aktarim kontrolleri.</p>
+              </div>
+              <div class="panel-body">
+                <div id="settingsSummary" class="summary">Sistem ozeti yukleniyor...</div>
+              </div>
+              <div class="panel-body row">
+                <button class="btn ghost quick-nav" data-target="overview">Firma/Bayi Ayarlari</button>
+                <button class="btn ghost quick-nav" data-target="users">Kullanici Rolleri</button>
+                <button class="btn ghost quick-nav" data-target="woo">Entegrasyon Baglantilari</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Rapor Disa Aktarim</h2>
+                <p>Rapor tablolarini CSV formatinda indirin.</p>
+              </div>
+              <div class="panel-body row">
+                <button id="exportSalesCsv" type="button" class="btn ghost">Satis Ozeti CSV</button>
+                <button id="exportWooCsv" type="button" class="btn ghost">Woo Urun Satis CSV</button>
+                <button id="exportProductSummaryCsv" type="button" class="btn ghost">Urun Ozeti CSV</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Firma Veri Sagligi</h2>
+                <p>Secili firma icin kritik metrikler.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="settingsCompanyHealthTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Entegrasyon Sagligi</h2>
+                <p>Bayi bazli baglanti ve eslesmeyen log durumu.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="settingsIntegrationHealthTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-section="saas">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Platform Yonetimi (SaaS Hazirligi)</h2>
+                <p>Coklu firma yapisi icin tenant ozet ve kapasite gorunumu.</p>
+              </div>
+              <div class="panel-body row">
+                <button id="refreshSaas" type="button" class="btn">SaaS Ozetini Yenile</button>
+                <button class="btn ghost quick-nav" data-target="settings">Sistem Ayarlari</button>
+                <button class="btn ghost quick-nav" data-target="users">Yetki Rolleri</button>
+              </div>
+              <div class="panel-body">
+                <div id="saasSummary" class="summary">Tenant ozeti yukleniyor...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Tenant Ozet Tablosu</h2>
+              <p>Her firma icin bayi, urun, siparis ve finans metrikleri.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="saasTenantTable"></table>
+            </div>
+          </div>
+        </section>
+        <section class="section" data-section="industry">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sektor Profilleri</h2>
+                <p>Firma bazinda sektor profili secip dinamik kurallari aktif edin.</p>
+              </div>
+              <form id="industryProfileForm" class="panel-body">
+                <select name="code">
+                  <option value="GENERIC">Genel Dagitim</option>
+                  <option value="JEWELRY">Kuyumculuk</option>
+                  <option value="APPAREL">Giyim</option>
+                  <option value="LEATHER">Deri</option>
+                  <option value="CUSTOM">Ozel</option>
+                </select>
+                <input name="name" placeholder="Profil adi" required />
+                <input name="description" placeholder="Aciklama (opsiyonel)" />
+                <label class="hint"><input type="checkbox" name="isDefault" /> Varsayilan profil yap</label>
+                <label class="hint"><input type="checkbox" name="active" checked /> Aktif</label>
+                <button class="btn">Profil Kaydet</button>
+              </form>
+              <div class="panel-body row">
+                <button id="seedIndustryProfiles" type="button" class="btn ghost">Hazir Profilleri Yukle</button>
+                <button id="refreshIndustrySection" type="button" class="btn ghost">Sektor Verisini Yenile</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sektor Ozeti</h2>
+                <p>Secili profilin alan, kural ve sablon sayilari.</p>
+              </div>
+              <div class="panel-body">
+                <div id="industrySummary" class="summary">Sektor verileri yukleniyor...</div>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="industryProfileTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Dinamik Alan Tanimlari</h2>
+                <p>Urun, varyasyon, bayi, siparis veya sevkiyat icin ozel alan tanimlayin.</p>
+              </div>
+              <form id="attributeDefinitionForm" class="panel-body">
+                <select id="attributeIndustryProfileSelect" name="industryProfileId"></select>
+                <select name="entity">
+                  <option value="PRODUCT">Urun</option>
+                  <option value="VARIANT">Varyasyon</option>
+                  <option value="DEALER">Bayi</option>
+                  <option value="ORDER">Siparis</option>
+                  <option value="DISPATCH">Sevkiyat</option>
+                </select>
+                <input name="key" placeholder="Alan anahtari (or: ayar)" required />
+                <input name="label" placeholder="Alan etiketi (or: Ayar)" required />
+                <select name="dataType">
+                  <option value="TEXT">Yazi</option>
+                  <option value="NUMBER">Sayi</option>
+                  <option value="BOOLEAN">Evet/Hayir</option>
+                  <option value="DATE">Tarih</option>
+                  <option value="JSON">JSON</option>
+                  <option value="ENUM">Secim (ENUM)</option>
+                </select>
+                <input name="helpText" placeholder="Yardim metni (opsiyonel)" />
+                <textarea name="options" rows="3" placeholder="Secenekler JSON (opsiyonel, or: ["14K","18K"])"></textarea>
+                <div class="row">
+                  <label class="hint"><input type="checkbox" name="required" /> Zorunlu</label>
+                  <label class="hint"><input type="checkbox" name="sortable" /> Siralanabilir</label>
+                  <label class="hint"><input type="checkbox" name="filterable" checked /> Filtrelenebilir</label>
+                  <label class="hint"><input type="checkbox" name="active" checked /> Aktif</label>
+                </div>
+                <button class="btn">Alan Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Dinamik Alan Listesi</h2>
+                <p>Tanimli sektor alanlari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="attributeDefinitionTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sektor Fiyat Kurallari</h2>
+                <p>Marj, iskonto ve formul kurallari ile sektor bazli fiyatlama yapin.</p>
+              </div>
+              <form id="pricingRuleForm" class="panel-body">
+                <select id="pricingIndustryProfileSelect" name="industryProfileId"></select>
+                <input name="name" placeholder="Kural adi" required />
+                <select name="ruleType">
+                  <option value="FIXED_MARGIN">Sabit Marj</option>
+                  <option value="DISCOUNT">Iskonto</option>
+                  <option value="FORMULA">Formul</option>
+                </select>
+                <input name="targetType" placeholder="Hedef tipi (or: PRODUCT, DEALER, CHANNEL)" required />
+                <input name="targetRef" placeholder="Hedef referansi (opsiyonel)" />
+                <input name="fixedMargin" type="number" step="0.01" placeholder="Marj %" />
+                <input name="discountRate" type="number" step="0.01" placeholder="Iskonto %" />
+                <input name="formula" placeholder="Formul (opsiyonel)" />
+                <div class="row">
+                  <input name="minPrice" type="number" step="0.01" placeholder="Min fiyat" />
+                  <input name="maxPrice" type="number" step="0.01" placeholder="Maks fiyat" />
+                </div>
+                <div class="row">
+                  <input name="priority" type="number" value="100" placeholder="Oncelik" />
+                  <label class="hint"><input type="checkbox" name="active" checked /> Aktif</label>
+                </div>
+                <button class="btn">Kural Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Fiyat Kurali Listesi</h2>
+                <p>Secili profile bagli fiyatlama kurallari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="pricingRuleTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Workflow Sablonlari</h2>
+                <p>Sektor bazli operasyon adimlarini JSON adimlariyla tanimlayin.</p>
+              </div>
+              <form id="workflowTemplateForm" class="panel-body">
+                <select id="workflowIndustryProfileSelect" name="industryProfileId"></select>
+                <input name="module" placeholder="Modul (or: dispatch, production)" required />
+                <input name="name" placeholder="Sablon adi" required />
+                <input name="description" placeholder="Aciklama (opsiyonel)" />
+                <textarea name="steps" rows="5" placeholder="Adimlar JSON (or: [{"step":"Kontrol","role":"warehouse"}])" required></textarea>
+                <label class="hint"><input type="checkbox" name="active" checked /> Aktif</label>
+                <button class="btn">Workflow Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Workflow Listesi</h2>
+                <p>Secili sektor icin operasyon sablonlari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="workflowTemplateTable"></table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Rapor Presetleri</h2>
+                <p>Sektor odakli rapor filtrelerini hazir preset olarak kaydedin.</p>
+              </div>
+              <form id="reportPresetForm" class="panel-body">
+                <select id="presetIndustryProfileSelect" name="industryProfileId"></select>
+                <input name="key" placeholder="Preset anahtari (or: JEWELRY_MONTHLY)" required />
+                <input name="name" placeholder="Preset adi" required />
+                <input name="description" placeholder="Aciklama (opsiyonel)" />
+                <textarea name="config" rows="5" placeholder="Config JSON (or: {"period":"MONTHLY","groupBy":"product"})" required></textarea>
+                <label class="hint"><input type="checkbox" name="active" checked /> Aktif</label>
+                <button class="btn">Preset Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Rapor Preset Listesi</h2>
+                <p>Secili sektor profiline bagli rapor presetleri.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="reportPresetTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+<section class="section" data-section="users">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Kullanici Ekle</h2>
+                <p>Yetki rolune gore kullanici tanimlayin.</p>
+              </div>
+              <form id="userForm" class="panel-body">
+                <input name="name" placeholder="Ad soyad" required />
+                <input name="email" placeholder="E-posta" required />
+                <select name="role">
+                  <option value="OWNER">Owner</option>
+                  <option value="ADMIN">Admin</option>
+                  <option value="WAREHOUSE">Depo</option>
+                  <option value="ACCOUNTING">Muhasebe</option>
+                  <option value="DEALER">Bayi</option>
+                </select>
+                <button class="btn">Kaydet</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Kullanici Listesi</h2>
+                <p>Yetkili kisiler ve API anahtarlari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="userTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+              <section class="section" data-section="system">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Sistem Yonetimi</h2>
+                <p>Audit log ve disa aktarim operasyonlari.</p>
+              </div>
+              <div class="panel-body row">
+                <button id="exportSystemJson" type="button" class="btn ghost">Yedekleme / Disa Aktarim (JSON)</button>
+                <button class="btn ghost quick-nav" data-target="overview">Sirket Bilgileri</button>
+                <button class="btn ghost quick-nav" data-target="users">Kullanici Rolleri</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Audit Log</h2>
+                <p>Sistem aksiyon kayitlari.</p>
+              </div>
+              <div class="panel-body">
+                <table class="table" id="auditTable"></table>
+              </div>
+            </div>
+          </div>
+        </section>
+</main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

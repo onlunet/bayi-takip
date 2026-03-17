@@ -1,0 +1,40 @@
+import { FastifyInstance } from "fastify";
+import { registerCompanyRoutes } from "./companies";
+import { registerCategoryRoutes } from "./categories";
+import { registerProductRoutes } from "./products";
+import { registerOrderRoutes } from "./orders";
+import { registerReportRoutes } from "./reports";
+import { registerLedgerRoutes } from "./ledger";
+import { registerPriceListRoutes } from "./priceLists";
+import { registerUserRoutes } from "./users";
+import { registerDealerRoutes } from "./dealer";
+import { registerWarehouseRoutes } from "./warehouses";
+import { registerLocationRoutes } from "./locations";
+import { registerDispatchRoutes } from "./dispatches";
+import { registerStockMovementRoutes } from "./stocks";
+import { registerMappingRoutes } from "./mappings";
+import { registerIntegrationRoutes } from "./integrations";
+import { registerProductionRoutes } from "./production";
+import { registerAuditRoutes } from "./audit";
+import { registerIndustryRoutes } from "./industry";
+
+export async function registerRoutes(app: FastifyInstance) {
+  await registerCompanyRoutes(app);
+  await registerCategoryRoutes(app);
+  await registerProductRoutes(app);
+  await registerOrderRoutes(app);
+  await registerReportRoutes(app);
+  await registerLedgerRoutes(app);
+  await registerPriceListRoutes(app);
+  await registerUserRoutes(app);
+  await registerDealerRoutes(app);
+  await registerWarehouseRoutes(app);
+  await registerLocationRoutes(app);
+  await registerDispatchRoutes(app);
+  await registerStockMovementRoutes(app);
+  await registerMappingRoutes(app);
+  await registerIntegrationRoutes(app);
+  await registerProductionRoutes(app);
+  await registerAuditRoutes(app);
+  await registerIndustryRoutes(app);
+}

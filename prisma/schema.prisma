@@ -1,0 +1,660 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../apps/api/node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Unit {
+  PIECE
+  KG
+  LT
+}
+
+enum LocationType {
+  WAREHOUSE
+  DEALER
+}
+
+enum StockMoveType {
+  PRODUCTION
+  DISPATCH
+  SALE
+  RETURN
+  ADJUSTMENT
+}
+
+enum DispatchStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderChannel {
+  MANUAL
+  WOO
+  SHOPIFY
+  MARKETPLACE
+  OTHER
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  ERROR
+}
+
+enum LedgerType {
+  DISPATCH
+  PAYMENT
+  RETURN
+  ADJUSTMENT
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  WAREHOUSE
+  ACCOUNTING
+  DEALER
+}
+
+enum RoundingType {
+  NONE
+  ROUND_90
+  ROUND_99
+  ROUND_50
+  INTEGER
+}
+
+enum Platform {
+  WOO
+  SHOPIFY
+  MARKETPLACE
+  OTHER
+}
+
+
+enum IndustryCode {
+  GENERIC
+  JEWELRY
+  APPAREL
+  LEATHER
+  CUSTOM
+}
+
+enum AttributeEntity {
+  PRODUCT
+  VARIANT
+  DEALER
+  ORDER
+  DISPATCH
+}
+
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  JSON
+  ENUM
+}
+
+enum PricingRuleType {
+  FIXED_MARGIN
+  FORMULA
+  DISCOUNT
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  dealers      Dealer[]
+  warehouses   Warehouse[]
+  locations    Location[]
+  products     Product[]
+  categories   Category[]
+  priceLists   PriceList[]
+  orders       Order[]
+  dispatches   Dispatch[]
+  ledger       LedgerTransaction[]
+  stockMoves   StockMovement[]
+  mappings     ProductMapping[]
+  integrations IntegrationLog[]
+  batches      ProductionBatch[]
+  audits       AuditLog[]
+  dealerIntegrations DealerIntegration[]
+  industryProfiles  IndustryProfile[]
+  attributeDefinitions AttributeDefinition[]
+  attributeValues   AttributeValue[]
+  pricingRules      PricingRule[]
+  workflowTemplates WorkflowTemplate[]
+  reportPresets     ReportPreset[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  companyId String
+  dealerId  String?
+  name      String
+  email     String   @unique
+  apiKey    String   @unique
+  role      Role     @default(DEALER)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  dealer    Dealer?  @relation(fields: [dealerId], references: [id])
+  auditLogs AuditLog[]
+}
+
+model Dealer {
+  id              String   @id @default(cuid())
+  companyId       String
+  name            String
+  email           String?
+  phone           String?
+  taxNumber       String?
+  address         String?
+  paymentTerms    Int      @default(0)
+  creditLimit     Decimal  @default(0.0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company         Company  @relation(fields: [companyId], references: [id])
+  settings        DealerSettings?
+  users           User[]
+  orders          Order[]
+  dispatches      Dispatch[]
+  ledger          LedgerTransaction[]
+  mappings        ProductMapping[]
+  priceLists      DealerPriceList[]
+  integrations    DealerIntegration[]
+  integrationLogs IntegrationLog[]
+}
+
+model DealerSettings {
+  id            String       @id @default(cuid())
+  dealerId      String       @unique
+  marginPercent Decimal      @default(0.0)
+  roundingType  RoundingType @default(NONE)
+  apiKey        String       @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  dealer        Dealer       @relation(fields: [dealerId], references: [id])
+}
+
+model DealerIntegration {
+  id             String    @id @default(cuid())
+  companyId      String
+  dealerId       String
+  platform       Platform
+  baseUrl        String?
+  consumerKey    String?
+  consumerSecret String?
+  active         Boolean   @default(true)
+  lastSyncAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  company        Company   @relation(fields: [companyId], references: [id])
+  dealer         Dealer    @relation(fields: [dealerId], references: [id])
+
+  @@index([dealerId, platform])
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  dispatches Dispatch[]
+}
+
+model Location {
+  id          String       @id @default(cuid())
+  companyId   String
+  type        LocationType
+  referenceId String
+  name        String
+  createdAt   DateTime     @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  stockMoves  StockMovement[]
+
+  @@index([companyId, type])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  createdAt DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  products  Product[]
+
+  @@unique([companyId, name])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  companyId   String
+  categoryId  String?
+  name        String
+  sku         String?
+  unit        Unit
+  weight      Decimal? @default(0.0)
+  basePrice   Decimal  @default(0.0)
+  description String?
+  imageUrl    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  category    Category? @relation(fields: [categoryId], references: [id])
+  variants    ProductVariant[]
+  images      ProductImage[]
+  priceItems  PriceListItem[]
+  orderItems  OrderItem[]
+  dispatchItems DispatchItem[]
+  stockMoves  StockMovement[]
+  mappings    ProductMapping[]
+  batches     ProductionBatch[]
+
+  @@index([companyId, createdAt])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model ProductVariant {
+  id         String   @id @default(cuid())
+  productId  String
+  name       String
+  sku        String?
+  unit       Unit
+  multiplier Decimal  @default(1.0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product    Product  @relation(fields: [productId], references: [id])
+  priceItems PriceListItem[]
+  orderItems OrderItem[]
+  dispatchItems DispatchItem[]
+  stockMoves StockMovement[]
+  mappings   ProductMapping[]
+
+  @@index([productId])
+}
+
+model PriceList {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  currency  String   @default("TRY")
+  createdAt DateTime @default(now())
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  items     PriceListItem[]
+  dealers   DealerPriceList[]
+}
+
+model PriceListItem {
+  id          String   @id @default(cuid())
+  priceListId String
+  productId   String
+  variantId   String?
+  price       Decimal
+
+  priceList   PriceList @relation(fields: [priceListId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@unique([priceListId, productId, variantId])
+}
+
+model DealerPriceList {
+  id          String   @id @default(cuid())
+  dealerId    String
+  priceListId String
+  createdAt   DateTime @default(now())
+
+  dealer      Dealer    @relation(fields: [dealerId], references: [id])
+  priceList   PriceList @relation(fields: [priceListId], references: [id])
+
+  @@unique([dealerId, priceListId])
+}
+
+model Dispatch {
+  id             String         @id @default(cuid())
+  companyId      String
+  dispatchNumber String
+  warehouseId    String
+  dealerId       String
+  status         DispatchStatus @default(DRAFT)
+  date           DateTime
+  createdAt      DateTime       @default(now())
+
+  company        Company   @relation(fields: [companyId], references: [id])
+  warehouse      Warehouse @relation(fields: [warehouseId], references: [id])
+  dealer         Dealer    @relation(fields: [dealerId], references: [id])
+  items          DispatchItem[]
+
+  @@index([companyId, dealerId])
+}
+
+model DispatchItem {
+  id         String   @id @default(cuid())
+  dispatchId String
+  productId  String
+  variantId  String?
+  quantity   Decimal
+  price      Decimal
+
+  dispatch   Dispatch @relation(fields: [dispatchId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  companyId   String
+  dealerId    String
+  channel     OrderChannel
+  externalId  String?
+  status      OrderStatus @default(NEW)
+  currency    String      @default("TRY")
+  totalPrice  Decimal     @default(0.0)
+  syncStatus  SyncStatus  @default(PENDING)
+  createdAt   DateTime    @default(now())
+
+  company     Company @relation(fields: [companyId], references: [id])
+  dealer      Dealer  @relation(fields: [dealerId], references: [id])
+  items       OrderItem[]
+
+  @@index([companyId, dealerId, createdAt])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  variantId String?
+  quantity  Decimal
+  unit      Unit
+  price     Decimal
+  total     Decimal
+
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([productId])
+  @@index([orderId])
+}
+
+model StockMovement {
+  id           String        @id @default(cuid())
+  companyId    String
+  productId    String
+  variantId    String?
+  locationId   String
+  type         StockMoveType
+  quantity     Decimal
+  referenceType String?
+  referenceId  String?
+  createdAt    DateTime      @default(now())
+
+  company      Company   @relation(fields: [companyId], references: [id])
+  product      Product   @relation(fields: [productId], references: [id])
+  variant      ProductVariant? @relation(fields: [variantId], references: [id])
+  location     Location  @relation(fields: [locationId], references: [id])
+
+  @@index([companyId, productId, createdAt])
+}
+
+model LedgerTransaction {
+  id            String     @id @default(cuid())
+  companyId     String
+  dealerId      String
+  type          LedgerType
+  amount        Decimal
+  referenceType String?
+  referenceId   String?
+  date          DateTime
+  createdAt     DateTime   @default(now())
+
+  company       Company @relation(fields: [companyId], references: [id])
+  dealer        Dealer  @relation(fields: [dealerId], references: [id])
+}
+
+model ProductMapping {
+  id                String   @id @default(cuid())
+  companyId          String
+  dealerId           String
+  platform           Platform
+  localProductId     String
+  localVariantId     String?
+  externalProductId  String
+  externalVariantId  String?
+  createdAt          DateTime @default(now())
+
+  company            Company @relation(fields: [companyId], references: [id])
+  dealer             Dealer  @relation(fields: [dealerId], references: [id])
+  localProduct       Product @relation(fields: [localProductId], references: [id])
+  localVariant       ProductVariant? @relation(fields: [localVariantId], references: [id])
+
+  @@unique([dealerId, platform, externalProductId, externalVariantId])
+  @@index([dealerId, platform])
+}
+
+model IntegrationLog {
+  id           String   @id @default(cuid())
+  companyId    String
+  dealerId     String?
+  platform     Platform
+  externalId   String?
+  status       String
+  errorMessage String?
+  payload      Json?
+  createdAt    DateTime @default(now())
+
+  company      Company @relation(fields: [companyId], references: [id])
+  dealer       Dealer? @relation(fields: [dealerId], references: [id])
+}
+
+model ProductionBatch {
+  id             String   @id @default(cuid())
+  companyId      String
+  productId      String
+  batchNumber    String
+  quantity       Decimal
+  productionDate DateTime
+  expiryDate     DateTime?
+  createdAt      DateTime @default(now())
+
+  company        Company @relation(fields: [companyId], references: [id])
+  product        Product @relation(fields: [productId], references: [id])
+}
+
+model IndustryProfile {
+  id                 String   @id @default(cuid())
+  companyId          String
+  code               IndustryCode @default(GENERIC)
+  name               String
+  description        String?
+  isDefault          Boolean  @default(false)
+  settings           Json?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  attributeDefinitions AttributeDefinition[]
+  pricingRules       PricingRule[]
+  workflowTemplates  WorkflowTemplate[]
+  reportPresets      ReportPreset[]
+
+  @@unique([companyId, name])
+  @@index([companyId, active])
+}
+
+model AttributeDefinition {
+  id                 String   @id @default(cuid())
+  companyId          String
+  industryProfileId  String
+  entity             AttributeEntity
+  key                String
+  label              String
+  dataType           AttributeDataType
+  options            Json?
+  required           Boolean  @default(false)
+  sortable           Boolean  @default(false)
+  filterable         Boolean  @default(true)
+  defaultValue       Json?
+  helpText           String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  industryProfile    IndustryProfile @relation(fields: [industryProfileId], references: [id])
+  values             AttributeValue[]
+
+  @@unique([industryProfileId, entity, key])
+  @@index([companyId, entity])
+}
+
+model AttributeValue {
+  id                 String   @id @default(cuid())
+  companyId          String
+  definitionId       String
+  resourceId         String
+  valueText          String?
+  valueNumber        Decimal?
+  valueBoolean       Boolean?
+  valueDate          DateTime?
+  valueJson          Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  definition         AttributeDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([definitionId, resourceId])
+  @@index([companyId, resourceId])
+}
+
+model PricingRule {
+  id                 String   @id @default(cuid())
+  companyId          String
+  industryProfileId  String
+  name               String
+  ruleType           PricingRuleType
+  targetType         String
+  targetRef          String?
+  currency           String   @default("TRY")
+  formula            String?
+  fixedMargin        Decimal?
+  discountRate       Decimal?
+  minPrice           Decimal?
+  maxPrice           Decimal?
+  priority           Int      @default(100)
+  active             Boolean  @default(true)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  industryProfile    IndustryProfile @relation(fields: [industryProfileId], references: [id])
+
+  @@index([companyId, active])
+  @@index([industryProfileId, targetType])
+}
+
+model WorkflowTemplate {
+  id                 String   @id @default(cuid())
+  companyId          String
+  industryProfileId  String
+  name               String
+  module             String
+  steps              Json
+  description        String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  industryProfile    IndustryProfile @relation(fields: [industryProfileId], references: [id])
+
+  @@index([companyId, module])
+}
+
+model ReportPreset {
+  id                 String   @id @default(cuid())
+  companyId          String
+  industryProfileId  String
+  key                String
+  name               String
+  description        String?
+  config             Json
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company            Company  @relation(fields: [companyId], references: [id])
+  industryProfile    IndustryProfile @relation(fields: [industryProfileId], references: [id])
+
+  @@unique([industryProfileId, key])
+  @@index([companyId, active])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  action     String
+  entity     String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+
+  company    Company @relation(fields: [companyId], references: [id])
+  user       User?   @relation(fields: [userId], references: [id])
+}
+
+
+
+
