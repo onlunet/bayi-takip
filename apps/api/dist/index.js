@@ -404,4 +404,8 @@ app.get("/auth/me", async (request, reply) => {
     });
 });
 app.get("/health", async () => ({ ok: true }));
-await app.listen({ port: config.PORT, host: "0.0.0.0" });
+export { app };
+export const ready = app.ready();
+if (process.env.VERCEL !== "1") {
+    await app.listen({ port: config.PORT, host: "0.0.0.0" });
+}
