@@ -5103,42 +5103,57 @@ async function exportSystemJson() {
 }
 async function refreshAll() {
   await refreshCompanies();
-  await refreshDealers();
-  await refreshWarehouses();
+
+  // Temel baglami once olustur (firma, bayi, depo, kullanici)
+  await Promise.all([
+    refreshDealers(),
+    refreshWarehouses(),
+    refreshUsers()
+  ]);
+
   await refreshLocations();
   updateWarehouseLocation();
-  await refreshWarehouseReport();
+
+  // Kategori -> urun -> varyasyon zinciri bagimli
   await refreshCategories();
-  await refreshDealerSettings();
   await refreshProducts();
-  await refreshVariants();
-  await refreshProductImages();
-  await refreshStockSummary();
-  await refreshStockMovements();
-  await refreshOrders();
-  await refreshDispatches();
-  await refreshProductionBatches();
-  await refreshProductionPlan();
-  await refreshPriceLists();
+  await Promise.all([
+    refreshVariants(),
+    refreshPriceLists()
+  ]);
   await refreshDealerPriceLists();
-  await refreshSalesSummary();
-  await refreshWooProductSalesSummary();
-  await refreshIntegrationLogs();
-  await refreshUnmappedSummary();
-  await refreshArge();
-  await refreshWooIntegrations();
-  await refreshGenericIntegrations();
-  await refreshMappings();
-  await refreshLedger();
-  await refreshAuditLogs();
-  await refreshIndustrySection();
-  await refreshSettingsSection();
-  await refreshUsers();
+
+  // Bu noktadan sonra moduller birbirinden buyuk oranda bagimsiz:
+  // hepsini paralel yukleyerek giris sonrasi bekleme suresini kisalt.
+  await Promise.all([
+    refreshWarehouseReport(),
+    refreshDealerSettings(),
+    refreshProductImages(),
+    refreshStockSummary(),
+    refreshStockMovements(),
+    refreshOrders(),
+    refreshDispatches(),
+    refreshProductionBatches(),
+    refreshProductionPlan(),
+    refreshSalesSummary(),
+    refreshWooProductSalesSummary(),
+    refreshIntegrationLogs(),
+    refreshUnmappedSummary(),
+    refreshArge(),
+    refreshWooIntegrations(),
+    refreshGenericIntegrations(),
+    refreshMappings(),
+    refreshLedger(),
+    refreshAuditLogs(),
+    refreshIndustrySection(),
+    refreshSettingsSection(),
+    refreshOnboardingPanel()
+  ]);
+
   renderDispatchSelectors();
   setDispatchFormCreateMode();
   resetDispatchFormItems();
   updateOverview();
-  await refreshOnboardingPanel();
   applyRoleVisibility();
 }
 async function setup() {
