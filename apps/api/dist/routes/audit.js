@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 export async function registerAuditRoutes(app) {
     app.get("/audit", async (request, reply) => {
         const companyId = request.query.companyId;

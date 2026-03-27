@@ -1,6 +1,6 @@
 import { AttributeDataType, AttributeEntity, IndustryCode, PricingRuleType, Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 const boolQuery = z
     .union([z.string(), z.boolean()])
     .optional()

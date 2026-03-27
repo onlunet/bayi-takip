@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="status_ok">#1B5E20</color>
+    <color name="status_error">#B71C1C</color>
+    <color name="launcher_background">#0B1F2A</color>
+</resources>
+

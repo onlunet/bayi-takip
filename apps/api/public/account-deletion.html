@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hesap Silme - Ekran Kontrolu</title>
+    <link rel="stylesheet" href="/parental.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>Hesap ve Veri Silme</h1>
+        <p>Play Store gereksinimleri icin uygulama disindan hesap silme araci.</p>
+        <div id="deleteStatus" class="status">Bilgileri girin.</div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Silme Formu</h2>
+            <p>Islem kalicidir. Tum cocuk profilleri ve kullanim verileri silinir.</p>
+          </div>
+          <form id="publicDeleteForm" class="panel-body">
+            <label>
+              Aile Kimligi
+              <input name="familyId" class="mono" required />
+            </label>
+            <label>
+              Ebeveyn PIN
+              <input name="parentPin" required minlength="4" />
+            </label>
+            <label>
+              Onay kelimesi
+              <input name="confirmation" value="DELETE" required />
+            </label>
+            <button class="btn danger" type="submit">Hesabi Kalici Sil</button>
+          </form>
+        </article>
+      </section>
+    </main>
+    <script src="/account-deletion.js"></script>
+  </body>
+</html>

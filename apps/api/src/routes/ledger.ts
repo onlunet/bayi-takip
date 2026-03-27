@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 
 const ledgerSchema = z.object({
   companyId: z.string().min(1),

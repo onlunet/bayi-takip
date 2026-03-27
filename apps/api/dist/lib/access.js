@@ -29,6 +29,7 @@ const ACCOUNTING_READ_PREFIXES = [
     "/dispatches",
     "/ledger",
     "/reports",
+    "/dashboard",
     "/price-lists",
     "/audit",
     "/integrations",
@@ -44,12 +45,25 @@ const ACCOUNTING_WRITE_PREFIXES = ["/ledger"];
 const PUBLIC_EXACT_PATHS = new Set([
     "/",
     "/index.html",
+    "/parent-parental.html",
+    "/parent-parental.js",
+    "/parental-admin.html",
+    "/parental-admin.js",
+    "/parental-admin.css",
+    "/child-parental.html",
+    "/child-parental.js",
+    "/account-deletion.html",
+    "/account-deletion.js",
+    "/parental.css",
     "/dealer.html",
     "/app.js",
     "/dealer.js",
+    "/storefront.html",
+    "/storefront.js",
     "/styles.css",
     "/favicon.ico",
-    "/health"
+    "/health",
+    "/auth/me"
 ]);
 function normalizePath(rawPath) {
     if (!rawPath)
@@ -92,6 +106,12 @@ export function isPublicPath(rawPath) {
     const path = normalizePath(rawPath);
     if (PUBLIC_EXACT_PATHS.has(path))
         return true;
+    if (path.startsWith("/admin/auth/"))
+        return true;
+    if (path.startsWith("/parental-control/"))
+        return true;
+    if (path.startsWith("/storefront/"))
+        return true;
     if (path.startsWith("/uploads/"))
         return true;
     if (path.startsWith("/assets/"))
@@ -102,5 +122,5 @@ export function isDealerPath(rawPath) {
     const path = normalizePath(rawPath);
     if (path === "/catalog.xml")
         return true;
-    return path.startsWith("/dealer");
+    return path === "/dealer" || path.startsWith("/dealer/");
 }

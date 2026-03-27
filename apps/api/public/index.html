@@ -7,156 +7,124 @@
     <link rel="stylesheet" href="/styles.css" />
     <link rel="icon" href="data:," />
   </head>
-  <body>
+  <body class="page-admin">
     <div class="bg-accent"></div>
     <header class="topbar">
-      <div>
-        <div class="brand">Bayi Portal</div>
-        <div class="subtitle">Stok, Siparis, Cari ve Analiz</div>
+      <div class="topbar-left">
+        <button
+          id="adminMenuToggle"
+          class="menu-toggle"
+          type="button"
+          aria-label="Menüyü ac veya kapat"
+          aria-controls="adminSidebar"
+          aria-expanded="false"
+        >
+          <span class="menu-toggle-icon" aria-hidden="true"></span>
+        </button>
+        <div>
+          <div class="brand">Bayi Portal</div>
+          <div class="subtitle">Stok, Siparis, Cari ve Analiz</div>
+        </div>
       </div>
       <div class="top-actions">
-        <input id="adminApiKey" class="input-inline" placeholder="Yonetim API Key" />
-        <button id="saveAdminApiKey" class="btn ghost">Key Kaydet</button>
+        <input id="adminLoginEmail" class="input-inline" type="email" placeholder="Yonetici e-posta" />
+        <input id="adminLoginPassword" class="input-inline" type="password" placeholder="Sifre" />
+        <button id="adminLoginButton" class="btn ghost">Giris</button>
+        <button id="adminLogoutButton" class="btn ghost">Cikis</button>
         <span id="health" class="pill">API: kontrol ediliyor</span>
         <button id="refreshAll" class="btn ghost">Tumunu Yenile</button>
       </div>
     </header>
 
+    <section id="testRoleBar" class="test-role-bar hidden" aria-label="Yetki test bari">
+      <span class="test-role-label">Hizli Yetki Testi</span>
+      <div class="test-role-actions">
+        <button type="button" class="btn ghost test-role-btn" data-role="OWNER">Owner</button>
+        <button type="button" class="btn ghost test-role-btn" data-role="ADMIN">Admin</button>
+        <button type="button" class="btn ghost test-role-btn" data-role="WAREHOUSE">Depo</button>
+        <button type="button" class="btn ghost test-role-btn" data-role="ACCOUNTING">Muhasebe</button>
+        <button type="button" class="btn ghost test-role-btn" data-role="DEALER">Bayi</button>
+        <button type="button" id="testRoleReset" class="btn ghost">Gercek Role Don</button>
+        <button type="button" id="openDealerPortalQuick" class="btn ghost">Bayi Panelini Ac</button>
+      </div>
+      <div id="testRoleInfo" class="hint">Test modu pasif.</div>
+    </section>
+
     <div class="app-layout">
-      <nav class="sidebar">
+      <nav class="sidebar sidebar-drawer" id="adminSidebar" aria-label="Ana menu">
         <div class="sidebar-title">Ana Menu</div>
 
         <div class="sidebar-group">
           <div class="sidebar-group-title">1. Dashboard</div>
-          <button class="nav-btn active" data-target="overview">Dashboard</button>
-          <button class="nav-btn" data-target="reports">Bugunku satis</button>
-          <button class="nav-btn" data-target="stock">Tahmini bayi stok uyarilari</button>
-          <button class="nav-btn" data-target="stock">Kritik depo stoklari</button>
-          <button class="nav-btn" data-target="ledger">Tahsilat bekleyen bakiyeler</button>
-          <button class="nav-btn" data-target="dispatch">Son sevkiyatlar</button>
-          <button class="nav-btn" data-target="production">Uretim plani uyarilari</button>
+          <button class="nav-btn active" data-target="overview">Genel Bakis</button>
+          <button class="nav-btn" data-target="settings">Operasyon Ozeti</button>
         </div>
 
         <div class="sidebar-group">
-          <div class="sidebar-group-title">2. Urun Yonetimi</div>
-          <button class="nav-btn" data-target="products">Urun Listesi</button>
-          <button class="nav-btn" data-target="products">Yeni Urun Ekle</button>
+          <div class="sidebar-group-title">2. Siparis / Satis</div>
+          <button class="nav-btn" data-target="orders">Tum Siparisler</button>
+          <button class="nav-btn" data-target="orders">Manuel Siparis Girisi</button>
+          <button class="nav-btn" data-target="dispatch">Sevkiyat Akisi</button>
+          <button class="nav-btn" data-target="woo">Woo Siparis Senkron</button>
+          <button class="nav-btn" data-target="unmapped">Eslesmeyen Siparisler</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">3. Stok / Depo</div>
+          <button class="nav-btn" data-target="stock">Stok Durumu</button>
+          <button class="nav-btn" data-target="stock">Stok Hareketleri</button>
+          <button class="nav-btn" data-target="stock">Depo Yonetimi</button>
+          <button class="nav-btn" data-target="stock">Bayi Tahmini Stok</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">4. Finans / Cari</div>
+          <button class="nav-btn" data-target="ledger">Cari Ozeti</button>
+          <button class="nav-btn" data-target="ledger">Cari Hareketler</button>
+          <button class="nav-btn" data-target="ledger">Tahsilat ve Vade</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">5. Rapor / Analiz</div>
+          <button class="nav-btn" data-target="reports">Satis Ozeti</button>
+          <button class="nav-btn" data-target="reports">Urun Performansi</button>
+          <button class="nav-btn" data-target="unmapped-summary">Eslesmeyen Urun Ozeti</button>
+          <button class="nav-btn" data-target="arge">Talep Goren Urunler</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">6. Entegrasyon Merkezi</div>
+          <button class="nav-btn" data-target="woo">WooCommerce</button>
+          <button class="nav-btn" data-target="mapping">Urun Eslestirme</button>
+          <button class="nav-btn" data-target="integrations">Kanal Entegrasyonlari</button>
+          <button class="nav-btn" data-target="integrations">Senkronizasyon ve Loglar</button>
+          <button class="nav-btn" data-target="integrations">XML / Feed Yonetimi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">7. Uretim ve Planlama</div>
+          <button class="nav-btn" data-target="production">Uretim Planlama</button>
+          <button class="nav-btn" data-target="production">Uretim Partileri</button>
+          <button class="nav-btn" data-target="arge">Ar-Ge Talep Analizi</button>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-title">8. Urun ve Katalog</div>
+          <button class="nav-btn" data-target="products">Urunler</button>
           <button class="nav-btn" data-target="categories">Kategoriler</button>
           <button class="nav-btn" data-target="variants">Varyasyonlar</button>
           <button class="nav-btn" data-target="prices">Fiyat Listeleri</button>
-          <button class="nav-btn" data-target="gallery">Urun Resimleri / Galeri</button>
-          <button class="nav-btn" data-target="integrations">XML / Katalog Ayarlari</button>
+          <button class="nav-btn" data-target="gallery">Urun Galeri</button>
         </div>
 
         <div class="sidebar-group">
-          <div class="sidebar-group-title">3. Bayiler / Firmalar</div>
-          <button class="nav-btn" data-target="dealers">Bayi Listesi</button>
-          <button class="nav-btn" data-target="dealers">Yeni Bayi Ekle</button>
-          <button class="nav-btn" data-target="dealers">Bayi Detayi</button>
-          <button class="nav-btn" data-target="prices">Bayi Fiyat Kurallari</button>
-          <button class="nav-btn" data-target="woo">Bayi API / Entegrasyon Ayarlari</button>
-          <button class="nav-btn" data-target="integrations">Bayi XML Ayarlari</button>
-          <button class="nav-btn" data-target="stock">Bayi Tahmini Stoklari</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">4. Stok Yonetimi</div>
-          <button class="nav-btn" data-target="stock">Genel Stok Gorunumu</button>
-          <button class="nav-btn" data-target="stock">Depo Stoklari</button>
-          <button class="nav-btn" data-target="stock">Bayi Tahmini Stoklari</button>
-          <button class="nav-btn" data-target="stock">Stok Hareketleri</button>
-          <button class="nav-btn" data-target="stock">Stok Duzeltme</button>
-          <button class="nav-btn" data-target="stock">Iade Islemleri</button>
-          <button class="nav-btn" data-target="stock">Kritik Stok Uyarilari</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">5. Sevkiyat</div>
-          <button class="nav-btn" data-target="dispatch">Sevkiyat Listesi</button>
-          <button class="nav-btn" data-target="dispatch">Yeni Sevkiyat Olustur</button>
-          <button class="nav-btn" data-target="dispatch">Irsaliyeler</button>
-          <button class="nav-btn" data-target="dispatch">Taslak Sevkiyatlar</button>
-          <button class="nav-btn" data-target="dispatch">Iptal Edilen Sevkiyatlar</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">6. Siparisler / Satislar</div>
-          <button class="nav-btn" data-target="orders">Tum Siparisler</button>
-          <button class="nav-btn" data-target="reports">Kanal Bazli Siparisler</button>
-          <button class="nav-btn" data-target="woo">WooCommerce Siparisleri</button>
-          <button class="nav-btn" data-target="orders">Manuel Bildirilen Satislar</button>
-          <button class="nav-btn" data-target="unmapped">Eslesmeyen Urunler</button>
-          <button class="nav-btn" data-target="unmapped-summary">Eslesmeyen Urun Ozeti</button>
-          <button class="nav-btn" data-target="integrations">Ice Aktarim Gecmisi</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">7. Cari Hesap / Muhasebe</div>
-          <button class="nav-btn" data-target="ledger">Cari Listesi</button>
-          <button class="nav-btn" data-target="ledger">Firma Ekstresi</button>
-          <button class="nav-btn" data-target="ledger">Tahsilatlar</button>
-          <button class="nav-btn" data-target="ledger">Borc / Alacak Hareketleri</button>
-          <button class="nav-btn" data-target="ledger">Bakiye Ozeti</button>
-          <button class="nav-btn" data-target="ledger">Vade Takibi</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">8. Uretim Planlama</div>
-          <button class="nav-btn" data-target="production">Uretim Onerileri</button>
-          <button class="nav-btn" data-target="production">Urun Bazli Talep Analizi</button>
-          <button class="nav-btn" data-target="production">Son 30 Gun Satis Analizi</button>
-          <button class="nav-btn" data-target="production">Stokta Kac Gun Kaldi</button>
-          <button class="nav-btn" data-target="production">Uretim Partileri</button>
-          <button class="nav-btn" data-target="production">Son Kullanma / Parti Takibi</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">9. Raporlar</div>
-          <button class="nav-btn" data-target="reports">Satis Ozeti</button>
-          <button class="nav-btn" data-target="reports">Urun Performansi</button>
-          <button class="nav-btn" data-target="reports">Bayi Performansi</button>
-          <button class="nav-btn" data-target="reports">Stok Raporu</button>
-          <button class="nav-btn" data-target="reports">Sevkiyat Raporu</button>
-          <button class="nav-btn" data-target="reports">Cari Raporu</button>
-          <button class="nav-btn" data-target="reports">Donemsel Karsilastirmalar</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">10. Entegrasyonlar</div>
-          <button class="nav-btn" data-target="woo">WooCommerce</button>
-          <button class="nav-btn" data-target="mapping">Urun Eslestirme</button>
-          <button class="nav-btn" data-target="integrations">Shopify</button>
-          <button class="nav-btn" data-target="integrations">Pazaryeri Entegrasyonlari</button>
-          <button class="nav-btn" data-target="integrations">XML Feed Yonetimi</button>
-          <button class="nav-btn" data-target="users">API Anahtarlari</button>
-          <button class="nav-btn" data-target="unmapped">Entegrasyon Loglari</button>
-          <button class="nav-btn" data-target="integrations">Senkronizasyon Durumu</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">11. Kullanicilar ve Yetkiler</div>
-          <button class="nav-btn" data-target="users">Kullanici Listesi</button>
-          <button class="nav-btn" data-target="users">Yeni Kullanici</button>
-          <button class="nav-btn" data-target="users">Roller ve Yetkiler</button>
-          <button class="nav-btn" data-target="users">API Kullanicilari</button>
-          <button class="nav-btn" data-target="users">Oturum Gecmisi</button>
-        </div>
-
-        <div class="sidebar-group">
-          <div class="sidebar-group-title">12. Sistem</div>
-          <button class="nav-btn" data-target="settings">Genel Ayarlar</button>
-          <button class="nav-btn" data-target="overview">Sirket Bilgileri</button>
-          <button class="nav-btn" data-target="stock">Depolar</button>
-          <button class="nav-btn" data-target="stock">Lokasyonlar</button>
-          <button class="nav-btn" data-target="industry">Sektor Profilleri</button>
-          <button class="nav-btn" data-target="industry">Dinamik Alanlar</button>
-          <button class="nav-btn" data-target="industry">Sektor Fiyat Kurallari</button>
-          <button class="nav-btn" data-target="industry">Workflow Sablonlari</button>
-          <button class="nav-btn" data-target="industry">Rapor Presetleri</button>
-          <button class="nav-btn" data-target="system">Audit Log</button>
-          <button class="nav-btn" data-target="system">Yedekleme / Disa Aktarim</button>
-          <button class="nav-btn" data-target="settings">Sistem Loglari</button>
-          <button class="nav-btn" data-target="saas">Platform / SaaS</button>
+          <div class="sidebar-group-title">9. Firma, Yetki ve Sistem</div>
+          <button class="nav-btn" data-target="dealers">Firma / Bayi Yonetimi</button>
+          <button class="nav-btn" data-target="users">Kullanici ve Yetkiler</button>
+          <button class="nav-btn" data-target="settings">Sistem Ayarlari</button>
+          <button class="nav-btn" data-target="industry">Sektor Paketleri</button>
+          <button class="nav-btn" data-target="system">Audit ve Sistem Logu</button>
+          <button class="nav-btn" data-target="saas">SaaS / Tenant</button>
         </div>
       </nav>
 
@@ -188,16 +156,23 @@
             <div class="panel">
               <div class="panel-head">
                 <h2>Ilk Kurulum Akisi</h2>
-                <p>Yeni kullanici icin en dogru baslangic adimlari.</p>
+                <p>Kurulum tamamlama durumu ve eksik adimlar.</p>
               </div>
               <div class="panel-body">
-                <ol class="guide-list">
-                  <li>Firma ve bayi secimi yapin.</li>
-                  <li>Firma, bayi, urun ve depo tanimlarini tamamlayin.</li>
-                  <li>Woo baglantisini ekleyip sync calistirin.</li>
-                  <li>Eslesmeyen urunleri urun esleme ekraninda baglayin.</li>
-                  <li>Raporlar ekranindan API satis, sevk ve kalan stogu kontrol edin.</li>
+                <div class="summary" id="onboardingProgress">Kurulum kontrolu yapiliyor...</div>
+                <ol class="guide-list" id="onboardingChecklist">
+                  <li>Kurulum adimlari yukleniyor...</li>
                 </ol>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Rol Bazli Hizli Aksiyonlar</h2>
+                <p>Gunluk operasyonu hizlandiran ilk 5 islem.</p>
+              </div>
+              <div class="panel-body">
+                <div class="row" id="overviewQuickActions"></div>
               </div>
             </div>
 
@@ -233,7 +208,6 @@
                   <option value="ROUND_50">.50</option>
                   <option value="INTEGER">Tam sayi</option>
                 </select>
-                <input name="apiKey" placeholder="API Key" readonly />
                 <button class="btn">Kaydet</button>
               </form>
             </div>
@@ -244,7 +218,7 @@
                 <p>Bayi girisi icin: <strong>/dealer.html</strong> adresini kullanabilirsiniz.</p>
               </div>
               <div class="panel-body">
-                <div class="hint">Bayi API anahtari ile giris yaparak siparis ve cari bakiye goruntuleyebilir.</div>
+                <div class="hint">Kapali devre modda sadece sizin sistemde tanimladiginiz bayi kullanicilari giris yapabilir.</div>
               </div>
             </div>
           </div>
@@ -354,6 +328,37 @@
                   <button class="btn" id="productFormSubmit">Kaydet</button>
                   <button class="btn ghost hidden" type="button" id="productFormCancel">Iptal</button>
                 </div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Toplu Urun Yukleme (CSV/XLSX)</h2>
+                <p>Firma bazinda urunleri dosyadan toplu olusturun veya guncelleyin.</p>
+              </div>
+              <form id="productBulkImportForm" class="panel-body">
+                <input id="productBulkFile" name="file" type="file" accept=".csv,.xlsx,.xls" required />
+                <div class="row">
+                  <label class="check-inline">
+                    <input id="productBulkUpdateExisting" type="checkbox" checked />
+                    Var olan urunleri guncelle
+                  </label>
+                  <label class="check-inline">
+                    <input id="productBulkCreateCategories" type="checkbox" checked />
+                    Eksik kategorileri otomatik olustur
+                  </label>
+                </div>
+                <select id="productBulkDefaultUnit">
+                  <option value="PIECE">Varsayilan birim: Adet</option>
+                  <option value="KG">Varsayilan birim: KG</option>
+                  <option value="LT">Varsayilan birim: LT</option>
+                </select>
+                <div class="row">
+                  <button id="downloadProductTemplateCsv" type="button" class="btn ghost">CSV Sablon</button>
+                  <button id="downloadProductTemplateXlsx" type="button" class="btn ghost">XLSX Sablon</button>
+                  <button class="btn">Dosyayi Yukle</button>
+                </div>
+                <div id="productBulkImportResult" class="hint">Toplu yukleme sonucu burada gorunur.</div>
               </form>
             </div>
           </div>
@@ -645,6 +650,42 @@
             </div>
           </div>
         </section>
+
+        <section class="section" data-section="arge">
+          <div class="grid">
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Ar-Ge Filtreleri</h2>
+                <p>Eslesmeyen urunlerden talep goren urunleri donemsel inceleyin.</p>
+              </div>
+              <div class="panel-body row">
+                <input type="date" id="argeFrom" />
+                <input type="date" id="argeTo" />
+                <button id="refreshArgeButton" type="button" class="btn ghost">Filtreyi Uygula</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Ar-Ge Ozet</h2>
+                <p>Uretime deger urun adedi, miktar ve tutar ozeti.</p>
+              </div>
+              <div class="panel-body">
+                <div id="argeSummary" class="summary">Ar-Ge verisi yukleniyor...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Talep Goren Urunler (Uretime Deger)</h2>
+              <p>Eslesmeyen urunler icinden uretim firsati yuksek olanlar.</p>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="argeDemandTable"></table>
+            </div>
+          </div>
+        </section>
         <section class="section" data-section="prices">
           <div class="grid">
             <div class="panel">
@@ -737,6 +778,22 @@
               </div>
               <div class="panel-body">
                 <table class="table" id="dealerPriceListTable"></table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>Bayi Fiyat Dosyasi (CSV/XLSX)</h2>
+                <p>Secili bayi icin fiyatlari indirip guncelleyerek tekrar yukleyin.</p>
+              </div>
+              <div class="panel-body row">
+                <button id="exportDealerPricesCsv" class="btn ghost" type="button">CSV Indir</button>
+                <button id="exportDealerPricesXlsx" class="btn ghost" type="button">XLSX Indir</button>
+                <input id="dealerPriceImportFile" type="file" accept=".csv,.xlsx,.xls" />
+                <button id="importDealerPricesButton" class="btn" type="button">Guncelle ve Yukle</button>
+              </div>
+              <div class="panel-body">
+                <div id="dealerPriceImportResult" class="summary">Bayi fiyat dosya islemleri burada gorunur.</div>
               </div>
             </div>
           </div>
@@ -889,7 +946,7 @@
                   <option value="OTHER">Diger</option>
                 </select>
                 <input name="baseUrl" placeholder="https://kanal-adresi.com" />
-                <input name="consumerKey" placeholder="API Key / Token" />
+                <input name="consumerKey" placeholder="Entegrasyon Anahtari / Token" />
                 <input name="consumerSecret" placeholder="API Secret (opsiyonel)" />
                 <label class="check-inline">
                   <input type="checkbox" name="active" checked />
@@ -1054,6 +1111,7 @@
                 <button id="exportProductSummaryCsv" type="button" class="btn ghost">Urun Ozeti CSV</button>
               </div>
             </div>
+
           </div>
 
           <div class="grid">
@@ -1311,6 +1369,7 @@
                   <option value="ACCOUNTING">Muhasebe</option>
                   <option value="DEALER">Bayi</option>
                 </select>
+                <input name="password" type="password" placeholder="Kullanici sifresi (zorunlu)" />
                 <button class="btn">Kaydet</button>
               </form>
             </div>
@@ -1318,7 +1377,7 @@
             <div class="panel">
               <div class="panel-head">
                 <h2>Kullanici Listesi</h2>
-                <p>Yetkili kisiler ve API anahtarlari.</p>
+                <p>Yetkili kisiler ve hesap durumlari.</p>
               </div>
               <div class="panel-body">
                 <table class="table" id="userTable"></table>
@@ -1353,6 +1412,7 @@
         </section>
 </main>
     </div>
+    <div id="adminMenuBackdrop" class="menu-backdrop" aria-hidden="true"></div>
 
     <div id="toast" class="toast"></div>
     <script src="/app.js"></script>

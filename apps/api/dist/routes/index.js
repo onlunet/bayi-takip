@@ -1,21 +1,23 @@
-import { registerCompanyRoutes } from "./companies";
-import { registerCategoryRoutes } from "./categories";
-import { registerProductRoutes } from "./products";
-import { registerOrderRoutes } from "./orders";
-import { registerReportRoutes } from "./reports";
-import { registerLedgerRoutes } from "./ledger";
-import { registerPriceListRoutes } from "./priceLists";
-import { registerUserRoutes } from "./users";
-import { registerDealerRoutes } from "./dealer";
-import { registerWarehouseRoutes } from "./warehouses";
-import { registerLocationRoutes } from "./locations";
-import { registerDispatchRoutes } from "./dispatches";
-import { registerStockMovementRoutes } from "./stocks";
-import { registerMappingRoutes } from "./mappings";
-import { registerIntegrationRoutes } from "./integrations";
-import { registerProductionRoutes } from "./production";
-import { registerAuditRoutes } from "./audit";
-import { registerIndustryRoutes } from "./industry";
+import { registerCompanyRoutes } from "./companies.js";
+import { registerCategoryRoutes } from "./categories.js";
+import { registerProductRoutes } from "./products.js";
+import { registerOrderRoutes } from "./orders.js";
+import { registerReportRoutes } from "./reports.js";
+import { registerLedgerRoutes } from "./ledger.js";
+import { registerPriceListRoutes } from "./priceLists.js";
+import { registerUserRoutes } from "./users.js";
+import { registerDealerRoutes } from "./dealer.js";
+import { registerWarehouseRoutes } from "./warehouses.js";
+import { registerLocationRoutes } from "./locations.js";
+import { registerDispatchRoutes } from "./dispatches.js";
+import { registerStockMovementRoutes } from "./stocks.js";
+import { registerMappingRoutes } from "./mappings.js";
+import { registerIntegrationRoutes } from "./integrations.js";
+import { registerProductionRoutes } from "./production.js";
+import { registerAuditRoutes } from "./audit.js";
+import { registerIndustryRoutes } from "./industry.js";
+import { registerDashboardRoutes } from "./dashboard.js";
+import { registerParentalControlRoutes } from "./parentalControl.js";
 export async function registerRoutes(app) {
     await registerCompanyRoutes(app);
     await registerCategoryRoutes(app);
@@ -35,4 +37,6 @@ export async function registerRoutes(app) {
     await registerProductionRoutes(app);
     await registerAuditRoutes(app);
     await registerIndustryRoutes(app);
+    await registerDashboardRoutes(app);
+    await registerParentalControlRoutes(app);
 }

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cocuk Uygulamasi - Ekran Kontrolu</title>
+    <link rel="stylesheet" href="/parental.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>Cocuk Uygulamasi</h1>
+        <p>Bu ekran cocuk cihazinda acilir. Eslestirme kodu ile baglanir, giris sifresini ebeveyn belirler.</p>
+        <div class="status" id="childStatus">Hazir.</div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>1) Cihaz Eslestirme</h2>
+            <p>Ebeveyn panelinden uretilen kod ile bagla.</p>
+          </div>
+          <div class="panel-body">
+            <form id="linkChildForm">
+              <label>
+                Aile Kimligi
+                <input id="linkFamilyId" name="familyId" class="mono" required />
+              </label>
+              <label>
+                Eslestirme Kodu (6 hane)
+                <input id="linkPairingCode" name="pairingCode" minlength="6" maxlength="6" class="mono" required />
+              </label>
+              <label>
+                Cocuk Adi
+                <input name="childName" required placeholder="Or: Ali" />
+              </label>
+              <label>
+                Cihaz Kimligi
+                <input id="childDeviceId" name="deviceId" class="mono" required />
+              </label>
+              <label>
+                <input name="childDisclosureExplained" type="checkbox" required />
+                Bu uygulamanin izleme/kisitlama amacini cocuga acikladim.
+              </label>
+              <button class="btn" type="submit">Koda Baglan</button>
+            </form>
+            <div class="hint">
+              Eslestirme sonrasi giris sifresini ebeveyn panelinden belirleyin.
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>2) Sifreli Giris</h2>
+            <p>Cocuk uygulamasi acildiginda ebeveynin belirledigi sifreyle giris gerekir.</p>
+          </div>
+          <div class="panel-body">
+            <form id="loginChildForm">
+              <div class="row">
+                <label>
+                  Aile Kimligi
+                  <input id="loginFamilyId" name="familyId" class="mono" required />
+                </label>
+                <label>
+                  Cocuk Kimligi
+                  <input id="loginChildId" name="childId" class="mono" required />
+                </label>
+              </div>
+              <div class="row">
+                <label>
+                  Cocuk Sifresi
+                  <input name="childPassword" required minlength="6" />
+                </label>
+                <label>
+                  Cihaz Kimligi
+                  <input id="loginDeviceId" name="deviceId" class="mono" required />
+                </label>
+              </div>
+              <button class="btn" type="submit">Giris Yap</button>
+            </form>
+            <span class="pill">Cocuk token oturum acikken saklanir.</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>3) Kural Gosterimi</h2>
+            <p>Ebeveynin tanimladigi kurallari cek.</p>
+          </div>
+          <div class="panel-body">
+            <button id="refreshChildPolicyBtn" class="btn ghost" type="button">Kurallari Yenile</button>
+            <button id="ackChildDisclosureBtn" class="btn ghost" type="button">Bilgilendirmeyi Onayla</button>
+            <div id="childDisclosureState" class="status">Bilgilendirme onayi bekleniyor.</div>
+            <pre id="policyOutput" class="status mono" style="white-space: pre-wrap;">-</pre>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>4) Kullanim Gonder</h2>
+            <p>Uygulama bazli dakika bilgisini sisteme gonderir.</p>
+          </div>
+          <div class="panel-body">
+            <form id="usageForm">
+              <div class="row">
+                <label>
+                  Uygulama Adi
+                  <input name="appName" placeholder="YouTube" required />
+                </label>
+                <label>
+                  Dakika
+                  <input name="minutes" type="number" min="1" max="480" value="10" required />
+                </label>
+              </div>
+              <button class="btn" type="submit">Kullanim Kaydi Gonder</button>
+            </form>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>5) Konum Gonder</h2>
+            <p>Cocuk konumunu ebeveyn paneline aktarir.</p>
+          </div>
+          <div class="panel-body">
+            <button id="sendLocationBtn" class="btn ghost" type="button">Mevcut Konumu Gonder</button>
+            <div id="locationSendState" class="status">Konum gonderimi bekleniyor.</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>6) Ebeveyn Kod Dogrulamasi</h2>
+            <p>Kritik islemler ebeveyn kodu ile acilir.</p>
+          </div>
+          <div class="panel-body">
+            <form id="verifyCodeForm">
+              <label>
+                Ebeveyn Dogrulama Kodu (6 hane)
+                <input name="code" minlength="6" maxlength="6" class="mono" required />
+              </label>
+              <button class="btn warn" type="submit">Kodu Dogrula</button>
+            </form>
+            <div id="unlockState" class="status">Kilitli durum: ebeveyn kodu bekleniyor.</div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script src="/child-parental.js"></script>
+  </body>
+</html>

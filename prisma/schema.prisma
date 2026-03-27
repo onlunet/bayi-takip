@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../apps/api/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -34,9 +33,16 @@ enum DispatchStatus {
 }
 
 enum OrderStatus {
+  DRAFT
   NEW
+  APPROVED
   PROCESSING
+  PREPARING
+  SHIPPED
+  DELIVERED
   COMPLETED
+  RETURNED
+  EXCHANGED
   CANCELLED
 }
 
@@ -52,6 +58,14 @@ enum SyncStatus {
   PENDING
   SYNCED
   ERROR
+}
+
+enum IntegrationJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
 }
 
 enum LedgerType {
@@ -82,6 +96,20 @@ enum Platform {
   SHOPIFY
   MARKETPLACE
   OTHER
+}
+
+enum ServiceRequestType {
+  RETURN
+  EXCHANGE
+  PAYMENT_LINK
+  OTHER
+}
+
+enum ServiceRequestStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
 }
 
 
@@ -126,6 +154,7 @@ model Company {
 
   users        User[]
   dealers      Dealer[]
+  dealerCustomers DealerCustomer[]
   warehouses   Warehouse[]
   locations    Location[]
   products     Product[]
@@ -137,8 +166,10 @@ model Company {
   stockMoves   StockMovement[]
   mappings     ProductMapping[]
   integrations IntegrationLog[]
+  integrationJobs IntegrationSyncJob[]
   batches      ProductionBatch[]
   audits       AuditLog[]
+  serviceRequests DealerServiceRequest[]
   dealerIntegrations DealerIntegration[]
   industryProfiles  IndustryProfile[]
   attributeDefinitions AttributeDefinition[]
@@ -187,6 +218,31 @@ model Dealer {
   priceLists      DealerPriceList[]
   integrations    DealerIntegration[]
   integrationLogs IntegrationLog[]
+  integrationJobs IntegrationSyncJob[]
+  serviceRequests DealerServiceRequest[]
+  customers       DealerCustomer[]
+}
+
+model DealerCustomer {
+  id         String   @id @default(cuid())
+  companyId  String
+  dealerId   String
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  note       String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id])
+  dealer     Dealer   @relation(fields: [dealerId], references: [id])
+  orders     Order[]
+
+  @@index([companyId, dealerId, createdAt])
+  @@index([dealerId, active, name])
+  @@unique([dealerId, name, phone])
 }
 
 model DealerSettings {
@@ -195,6 +251,7 @@ model DealerSettings {
   marginPercent Decimal      @default(0.0)
   roundingType  RoundingType @default(NONE)
   apiKey        String       @unique
+  storefrontKey String       @unique
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -215,6 +272,7 @@ model DealerIntegration {
 
   company        Company   @relation(fields: [companyId], references: [id])
   dealer         Dealer    @relation(fields: [dealerId], references: [id])
+  jobs           IntegrationSyncJob[]
 
   @@index([dealerId, platform])
 }
@@ -389,19 +447,28 @@ model Order {
   id          String      @id @default(cuid())
   companyId   String
   dealerId    String
+  customerId  String?
   channel     OrderChannel
   externalId  String?
   status      OrderStatus @default(NEW)
   currency    String      @default("TRY")
   totalPrice  Decimal     @default(0.0)
   syncStatus  SyncStatus  @default(PENDING)
+  customerName String?
+  customerPhone String?
+  customerNote String?
+  statusUpdatedAt DateTime @default(now())
   createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   company     Company @relation(fields: [companyId], references: [id])
   dealer      Dealer  @relation(fields: [dealerId], references: [id])
+  customer    DealerCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items       OrderItem[]
+  serviceRequests DealerServiceRequest[]
 
   @@index([companyId, dealerId, createdAt])
+  @@index([dealerId, customerId, createdAt])
 }
 
 model OrderItem {
@@ -413,6 +480,7 @@ model OrderItem {
   unit      Unit
   price     Decimal
   total     Decimal
+  note      String?
 
   order     Order    @relation(fields: [orderId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
@@ -490,6 +558,70 @@ model IntegrationLog {
 
   company      Company @relation(fields: [companyId], references: [id])
   dealer       Dealer? @relation(fields: [dealerId], references: [id])
+}
+
+model IntegrationSyncJob {
+  id             String               @id @default(cuid())
+  companyId      String
+  dealerId       String
+  integrationId  String
+  platform       Platform
+  status         IntegrationJobStatus @default(PENDING)
+  idempotencyKey String?
+  options        Json?
+  summary        Json?
+  errorMessage   String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  company        Company              @relation(fields: [companyId], references: [id])
+  dealer         Dealer               @relation(fields: [dealerId], references: [id])
+  integration    DealerIntegration    @relation(fields: [integrationId], references: [id])
+  attempts       IntegrationSyncAttempt[]
+
+  @@unique([integrationId, idempotencyKey])
+  @@index([companyId, createdAt])
+  @@index([integrationId, createdAt])
+}
+
+model IntegrationSyncAttempt {
+  id           String               @id @default(cuid())
+  jobId        String
+  attempt      Int
+  status       IntegrationJobStatus
+  errorMessage String?
+  summary      Json?
+  startedAt    DateTime             @default(now())
+  endedAt      DateTime?
+  createdAt    DateTime             @default(now())
+
+  job          IntegrationSyncJob   @relation(fields: [jobId], references: [id])
+
+  @@unique([jobId, attempt])
+  @@index([jobId, createdAt])
+}
+
+model DealerServiceRequest {
+  id         String               @id @default(cuid())
+  companyId  String
+  dealerId   String
+  orderId    String?
+  type       ServiceRequestType
+  status     ServiceRequestStatus @default(OPEN)
+  note       String?
+  payload    Json?
+  resolvedAt DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  company    Company              @relation(fields: [companyId], references: [id])
+  dealer     Dealer               @relation(fields: [dealerId], references: [id])
+  order      Order?               @relation(fields: [orderId], references: [id])
+
+  @@index([companyId, dealerId, createdAt])
+  @@index([status, createdAt])
 }
 
 model ProductionBatch {

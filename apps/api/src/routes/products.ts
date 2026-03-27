@@ -3,7 +3,16 @@ import { z } from "zod";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
+import {
+  buildCsv,
+  buildXlsxBuffer,
+  detectFormat,
+  parseSpreadsheetFromBase64,
+  pickBoolean,
+  pickNumber,
+  pickString
+} from "../lib/spreadsheet.js";
 
 const createSchema = z.object({
   companyId: z.string().min(1),
@@ -44,6 +53,15 @@ const uploadImageSchema = z.object({
   dataUrl: z.string().min(20),
   setAsMain: z.boolean().optional().default(true),
   addToGallery: z.boolean().optional().default(true)
+});
+
+const bulkImportSchema = z.object({
+  companyId: z.string().min(1),
+  fileName: z.string().optional(),
+  contentBase64: z.string().min(20),
+  updateExisting: z.boolean().optional().default(true),
+  createCategories: z.boolean().optional().default(true),
+  defaultUnit: z.enum(["PIECE", "KG", "LT"]).optional().default("PIECE")
 });
 
 const __filename = fileURLToPath(import.meta.url);
@@ -87,6 +105,18 @@ function parseImageData(dataUrl: string, fallbackMimeType?: string) {
   return null;
 }
 
+function parseUnit(raw: string, defaultUnit: "PIECE" | "KG" | "LT") {
+  const value = String(raw || "")
+    .toLocaleLowerCase("tr")
+    .trim();
+
+  if (!value) return defaultUnit;
+  if (["kg", "kilogram", "kilo"].includes(value)) return "KG";
+  if (["lt", "l", "litre", "liter"].includes(value)) return "LT";
+  if (["piece", "adet", "ad", "pcs", "pc"].includes(value)) return "PIECE";
+  return defaultUnit;
+}
+
 async function saveProductImage(params: { productId: string; fileName?: string; dataUrl: string; mimeType?: string }) {
   const parsed = parseImageData(params.dataUrl, params.mimeType);
   if (!parsed) {
@@ -111,6 +141,188 @@ async function saveProductImage(params: { productId: string; fileName?: string; 
 }
 
 export async function registerProductRoutes(app: FastifyInstance) {
+  app.get("/products/import-template", async (request, reply) => {
+    const format = detectFormat((request.query as any)?.format as string | undefined);
+    const headers = [
+      "urun_adi",
+      "sku",
+      "kategori",
+      "birim",
+      "gramaj",
+      "baz_fiyat",
+      "aciklama",
+      "gorsel_url",
+      "aktif"
+    ];
+
+    const rows = [
+      ["Karakilcik Eriste", "ER-001", "Eriste", "KG", "1000", "165", "Klasik urun", "", "1"],
+      ["Koy Tarhanasi", "TH-002", "Tarhana", "KG", "500", "220", "", "", "1"]
+    ];
+
+    if (format === "csv") {
+      const content = buildCsv(headers, rows);
+      reply
+        .header("Content-Type", "text/csv; charset=utf-8")
+        .header("Content-Disposition", 'attachment; filename="urun-toplu-sablon.csv"')
+        .send(content);
+      return;
+    }
+
+    const buffer = buildXlsxBuffer(headers, rows, "UrunSablonu");
+    reply
+      .header(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      )
+      .header("Content-Disposition", 'attachment; filename="urun-toplu-sablon.xlsx"')
+      .send(buffer);
+  });
+
+  app.post("/products/import", async (request, reply) => {
+    const payload = bulkImportSchema.parse(request.body);
+    let parsedRows: ReturnType<typeof parseSpreadsheetFromBase64>;
+    try {
+      parsedRows = parseSpreadsheetFromBase64(payload.contentBase64);
+    } catch {
+      reply.status(400).send({ message: "Dosya okunamadi. CSV/XLSX formatini kontrol edin." });
+      return;
+    }
+    if (!parsedRows.length) {
+      reply.status(400).send({ message: "Dosyada islenecek satir bulunamadi" });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const categories = await tx.category.findMany({
+        where: { companyId: payload.companyId },
+        select: { id: true, name: true }
+      });
+
+      const categoryMap = new Map(
+        categories.map((category) => [category.name.toLocaleLowerCase("tr"), category.id])
+      );
+
+      let created = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: Array<{ row: number; message: string }> = [];
+
+      for (const row of parsedRows) {
+        try {
+          const normalized = row.normalized;
+          const name = pickString(normalized, [
+            "urun",
+            "urunadi",
+            "urun_adi",
+            "name",
+            "product",
+            "productname"
+          ]);
+
+          if (!name) {
+            skipped += 1;
+            continue;
+          }
+
+          const sku = pickString(normalized, ["sku", "stokkodu", "kodu", "kod"], "");
+          const categoryName = pickString(normalized, ["kategori", "category"], "");
+          const unit = parseUnit(
+            pickString(normalized, ["birim", "unit"], payload.defaultUnit),
+            payload.defaultUnit
+          );
+          const weight = pickNumber(normalized, ["gramaj", "agirlik", "weight"], NaN);
+          const basePrice = pickNumber(
+            normalized,
+            ["bazfiyat", "baz_fiyat", "fiyat", "price", "birimfiyat"],
+            NaN
+          );
+          const description = pickString(normalized, ["aciklama", "description"], "");
+          const imageUrl = pickString(normalized, ["gorsel", "gorselurl", "image", "imageurl"], "");
+          const active = pickBoolean(normalized, ["aktif", "active"], true);
+
+          let categoryId: string | undefined;
+          if (categoryName) {
+            const categoryKey = categoryName.toLocaleLowerCase("tr");
+            if (categoryMap.has(categoryKey)) {
+              categoryId = categoryMap.get(categoryKey);
+            } else if (payload.createCategories) {
+              const createdCategory = await tx.category.create({
+                data: {
+                  companyId: payload.companyId,
+                  name: categoryName
+                }
+              });
+              categoryMap.set(categoryKey, createdCategory.id);
+              categoryId = createdCategory.id;
+            }
+          }
+
+          const existing = sku
+            ? await tx.product.findFirst({
+                where: {
+                  companyId: payload.companyId,
+                  sku
+                }
+              })
+            : await tx.product.findFirst({
+                where: {
+                  companyId: payload.companyId,
+                  name
+                }
+              });
+
+          const productData = {
+            categoryId,
+            name,
+            sku: sku || undefined,
+            unit,
+            weight: Number.isFinite(weight) ? weight : undefined,
+            basePrice: Number.isFinite(basePrice) ? basePrice : undefined,
+            description: description || undefined,
+            imageUrl: imageUrl || undefined,
+            active
+          };
+
+          if (!existing) {
+            await tx.product.create({
+              data: {
+                companyId: payload.companyId,
+                ...productData
+              }
+            });
+            created += 1;
+            continue;
+          }
+
+          if (!payload.updateExisting) {
+            skipped += 1;
+            continue;
+          }
+
+          await tx.product.update({
+            where: { id: existing.id },
+            data: productData
+          });
+          updated += 1;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Satir islenemedi";
+          errors.push({ row: row.rowIndex, message });
+        }
+      }
+
+      return {
+        totalRows: parsedRows.length,
+        created,
+        updated,
+        skipped,
+        errors
+      };
+    });
+
+    reply.send(result);
+  });
+
   app.post("/products", async (request, reply) => {
     const data = createSchema.parse(request.body);
     const product = await prisma.product.create({

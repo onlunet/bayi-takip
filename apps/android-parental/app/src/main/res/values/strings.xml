@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aile Kontrolu</string>
+    <string name="base_url_label">Panel Ana Adresi</string>
+    <string name="help_text">Sadece HTTPS alan adi kullanin. Ornek: https://api.example.com</string>
+    <string name="open_parent">Ebeveyn Panel</string>
+    <string name="open_child">Cocuk Panel</string>
+    <string name="open_deletion">Hesap Silme</string>
+    <string name="clear_session">Oturumu Temizle</string>
+    <string name="mode_parent">Ebeveyn</string>
+    <string name="mode_child">Cocuk</string>
+    <string name="mode_chooser_title">Profil Secimi</string>
+    <string name="mode_chooser_message">Ilk acilista profil secin. Sonraki acilislarda secilen profil otomatik acilir.</string>
+    <string name="action_cancel">Vazgec</string>
+    <string name="status_mode_parent">Ebeveyn profili aciliyor...</string>
+    <string name="status_mode_child">Cocuk profili aciliyor...</string>
+    <string name="status_mode_selection_required">Devam etmek icin profil secin.</string>
+    <string name="menu_switch_profile">Profil Degistir</string>
+    <string name="menu_open_parent">Ebeveyn Paneline Git</string>
+    <string name="menu_open_child">Cocuk Paneline Git</string>
+    <string name="menu_open_admin">Yonetim Paneli</string>
+    <string name="menu_open_deletion">Hesap Silme Sayfasi</string>
+    <string name="menu_clear_session">Oturumu Temizle</string>
+
+    <string name="status_ready">Hazir.</string>
+    <string name="status_loading">Yukleniyor...</string>
+    <string name="status_loaded">Yuklendi: %1$s</string>
+    <string name="status_session_cleared">Cerez ve oturum verileri temizlendi.</string>
+
+    <string name="error_base_url">Gecersiz adres. URL https:// ile baslamali.</string>
+    <string name="error_ssl">SSL hatasi. Guvenli baglanti kurulamadigi icin sayfa engellendi.</string>
+    <string name="error_load">Sayfa hatasi: %1$s</string>
+    <string name="error_blocked_url">Engellendi (guvenli degil): %1$s</string>
+    <string name="error_host_mismatch">Engellendi (farkli alan adi): %1$s</string>
+</resources>

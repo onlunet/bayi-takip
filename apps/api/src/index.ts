@@ -2,18 +2,29 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import prisma from "./lib/prisma";
-import { loadConfig } from "./config";
-import { registerRoutes } from "./routes/index";
-import { canAccessAdminRoute, isDealerPath, isPublicPath } from "./lib/access";
+import { z } from "zod";
+import prisma from "./lib/prisma.js";
+import { loadConfig } from "./config.js";
+import { registerRoutes } from "./routes/index.js";
+import { canAccessAdminRoute, isDealerPath, isPublicPath } from "./lib/access.js";
+import {
+  createAdminAuthToken,
+  hasUserAuthCredential,
+  upsertUserAuthCredential,
+  verifyAdminAuthToken,
+  verifyUserAuthCredential
+} from "./lib/dealerMembership.js";
 
 const config = loadConfig();
 const app = Fastify({ logger: true, bodyLimit: 20 * 1024 * 1024 });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const publicDir = path.resolve(__dirname, "../public");
+const localPublicDir = path.resolve(__dirname, "../public");
+const repoPublicDir = path.resolve(process.cwd(), "apps/api/public");
+const publicDir = fs.existsSync(localPublicDir) ? localPublicDir : repoPublicDir;
 
 const AUTH_CACHE_MS = 15000;
 let authRequiredCache = { value: false, checkedAt: 0 };
@@ -33,6 +44,8 @@ const AUTO_SCOPE_QUERY_PREFIXES = [
   "/audit",
   "/reports",
   "/integrations/logs",
+  "/integrations/jobs",
+  "/dashboard",
   "/production/batches",
   "/mappings",
   "/industry-profiles",
@@ -71,6 +84,73 @@ const AUTO_SCOPE_BODY_PATHS = new Set([
 function readHeader(value: string | string[] | undefined) {
   if (!value) return undefined;
   return Array.isArray(value) ? value[0] : value;
+}
+
+const adminLoginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(6).max(128)
+});
+
+function readAdminToken(request: any) {
+  const fromHeader = readHeader(request.headers["x-admin-token"] as string | string[] | undefined);
+  if (fromHeader) return fromHeader.trim();
+
+  const authorization = readHeader(request.headers.authorization as string | string[] | undefined);
+  if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
+    const token = authorization.slice(7).trim();
+    if (token.length) return token;
+  }
+
+  return undefined;
+}
+
+async function resolveAdminTokenUser(request: any) {
+  const adminToken = readAdminToken(request);
+  if (!adminToken) return null;
+
+  const payload = verifyAdminAuthToken(adminToken);
+  if (!payload) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: {
+      id: true,
+      companyId: true,
+      role: true,
+      dealerId: true,
+      active: true
+    }
+  });
+
+  if (!user || !user.active) return null;
+  if (user.role === "DEALER") return null;
+  if (user.role !== payload.role) return null;
+
+  const userCompanyId = user.companyId ?? null;
+  if ((payload.companyId ?? null) !== userCompanyId) return null;
+
+  return user;
+}
+
+async function resolveApiKeyUser(request: any) {
+  const suppliedUserKey = readHeader(request.headers["x-api-key"] as string | string[] | undefined);
+  if (!suppliedUserKey) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { apiKey: suppliedUserKey },
+    select: {
+      id: true,
+      companyId: true,
+      role: true,
+      dealerId: true,
+      active: true
+    }
+  });
+
+  if (!user || !user.active) return null;
+  if (user.role === "DEALER") return null;
+
+  return user;
 }
 
 function pathMatches(path: string, prefix: string) {
@@ -217,6 +297,15 @@ async function resolveResourceCompanyScope(
   }
 
   if (pathMatches(lowerPath, "/integrations") && id) {
+    if (pathMatches(lowerPath, "/integrations/jobs")) {
+      const job = await prisma.integrationSyncJob.findUnique({
+        where: { id },
+        select: { companyId: true }
+      });
+      if (!job) return { companyId: null, notFound: true };
+      return { companyId: job.companyId };
+    }
+
     const integration = await prisma.dealerIntegration.findUnique({
       where: { id },
       select: { companyId: true }
@@ -339,25 +428,12 @@ app.addHook("preHandler", async (request, reply) => {
     return;
   }
 
-  const suppliedUserKey = readHeader(request.headers["x-api-key"] as string | string[] | undefined);
-  if (!suppliedUserKey) {
-    reply.status(401).send({ message: "Yonetim API key gerekli" });
-    return;
-  }
+  const tokenUser = await resolveAdminTokenUser(request);
+  const apiKeyUser = tokenUser ? null : await resolveApiKeyUser(request);
+  const user = tokenUser ?? apiKeyUser;
 
-  const user = await prisma.user.findUnique({
-    where: { apiKey: suppliedUserKey },
-    select: {
-      id: true,
-      companyId: true,
-      role: true,
-      dealerId: true,
-      active: true
-    }
-  });
-
-  if (!user || !user.active) {
-    reply.status(401).send({ message: "Gecersiz veya pasif API key" });
+  if (!user) {
+    reply.status(401).send({ message: "Yonetim girisi gerekli" });
     return;
   }
 
@@ -428,10 +504,102 @@ app.addHook("preHandler", async (request, reply) => {
 
 await registerRoutes(app);
 
-app.get("/auth/me", async (request, reply) => {
-  const authUser = (request as any).authUser ?? null;
+app.post("/admin/auth/login", async (request, reply) => {
+  const data = adminLoginSchema.parse(request.body);
+  const normalizedEmail = data.email.trim().toLowerCase();
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: {
+      id: true,
+      companyId: true,
+      dealerId: true,
+      role: true,
+      active: true,
+      apiKey: true
+    }
+  });
+
+  if (!user || user.role === "DEALER") {
+    reply.status(401).send({ message: "E-posta veya sifre hatali" });
+    return;
+  }
+
+  if (!user.active) {
+    reply.status(403).send({ message: "Kullanici pasif. Yoneticiye basvurun." });
+    return;
+  }
+
+  const hasCredential = await hasUserAuthCredential(user.id);
+  const passwordOk = hasCredential
+    ? await verifyUserAuthCredential(user.id, data.password)
+    : data.password === user.apiKey;
+  if (!passwordOk) {
+    reply.status(401).send({ message: "E-posta veya sifre hatali" });
+    return;
+  }
+
+  if (!hasCredential) {
+    await upsertUserAuthCredential(prisma as any, user.id, data.password);
+  }
+
+  const role = user.role as "OWNER" | "ADMIN" | "WAREHOUSE" | "ACCOUNTING";
+  const token = createAdminAuthToken({
+    userId: user.id,
+    companyId: user.companyId ?? null,
+    role
+  });
+
+  reply.send({
+    token,
+    user: {
+      id: user.id,
+      companyId: user.companyId ?? null,
+      dealerId: user.dealerId ?? null,
+      role: user.role,
+      active: user.active
+    }
+  });
+});
+
+async function sendAuthMeResponse(request: any, reply: any) {
   const authRequired = await shouldRequireAdminAuth();
-  if (!authUser) {
+
+  if (!authRequired) {
+    reply.send({
+      authRequired,
+      user: {
+        id: "bootstrap-owner",
+        companyId: null,
+        dealerId: null,
+        role: "OWNER",
+        active: true
+      }
+    });
+    return;
+  }
+
+  const envAdminKey = config.ADMIN_API_KEY?.trim();
+  const suppliedAdminKey = readHeader(request.headers["x-admin-key"] as string | string[] | undefined);
+  if (envAdminKey && suppliedAdminKey === envAdminKey) {
+    reply.send({
+      authRequired,
+      user: {
+        id: "env-admin",
+        companyId: null,
+        dealerId: null,
+        role: "OWNER",
+        active: true
+      }
+    });
+    return;
+  }
+
+  const tokenUser = await resolveAdminTokenUser(request);
+  const apiKeyUser = tokenUser ? null : await resolveApiKeyUser(request);
+  const user = tokenUser ?? apiKeyUser;
+
+  if (!user) {
     reply.send({
       authRequired,
       user: null
@@ -442,20 +610,39 @@ app.get("/auth/me", async (request, reply) => {
   reply.send({
     authRequired,
     user: {
-      id: authUser.id,
-      companyId: authUser.companyId ?? null,
-      dealerId: authUser.dealerId ?? null,
-      role: authUser.role ?? "OWNER",
-      active: Boolean(authUser.active ?? true)
+      id: user.id,
+      companyId: user.companyId ?? null,
+      dealerId: user.dealerId ?? null,
+      role: user.role ?? "OWNER",
+      active: Boolean(user.active ?? true)
     }
   });
+}
+
+app.get("/admin/auth/me", async (request, reply) => {
+  await sendAuthMeResponse(request, reply);
+});
+
+app.get("/auth/me", async (request, reply) => {
+  await sendAuthMeResponse(request, reply);
 });
 
 app.get("/health", async () => ({ ok: true }));
 
-export { app };
-export const ready = app.ready();
+let appReadyPromise: Promise<unknown> | null = null;
 
-if (process.env.VERCEL !== "1") {
+function ensureAppReady() {
+  if (!appReadyPromise) {
+    appReadyPromise = Promise.resolve(app.ready());
+  }
+  return appReadyPromise;
+}
+
+if (!process.env.VERCEL) {
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
+}
+
+export default async function handler(req: any, res: any) {
+  await ensureAppReady();
+  app.server.emit("request", req, res);
 }

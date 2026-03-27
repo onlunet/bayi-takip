@@ -1,11 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 import {
   MappingCandidate,
   normalizeMatchText,
   rankMappingSuggestions
-} from "../lib/mappingSuggestions";
+} from "../lib/mappingSuggestions.js";
 
 const mappingSchema = z.object({
   companyId: z.string().min(1),

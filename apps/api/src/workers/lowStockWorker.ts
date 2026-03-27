@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 
 const threshold = Number(process.env.LOW_STOCK_THRESHOLD ?? 10);
 const intervalMs = Number(process.env.LOW_STOCK_INTERVAL_MS ?? 3600000);

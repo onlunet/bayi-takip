@@ -1,8 +1,9 @@
 import { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../lib/prisma";
-import { buildRiskBlockMessage, calculateDealerRisk } from "../lib/risk";
+import prisma from "../lib/prisma.js";
+import { writeAuditLog } from "../lib/audit.js";
+import { buildRiskBlockMessage, calculateDealerRisk } from "../lib/risk.js";
 
 const itemSchema = z.object({
   productId: z.string().min(1),
@@ -166,6 +167,7 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
   app.post("/dispatches", async (request, reply) => {
     const data = dispatchSchema.parse(request.body);
     const authRole = (request as any).authUser?.role ?? "OWNER";
+    const authUserId = (request as any).authUser?.id ?? null;
     const canBypassRisk = Boolean(
       data.allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN")
     );
@@ -250,6 +252,21 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
         });
       }
 
+      await writeAuditLog(tx, {
+        companyId: data.companyId,
+        userId: authUserId,
+        action: "DISPATCH_CREATED",
+        entity: "DISPATCH",
+        entityId: created.id,
+        newValue: {
+          dispatchNumber: created.dispatchNumber,
+          warehouseId: created.warehouseId,
+          dealerId: created.dealerId,
+          status: created.status,
+          itemCount: created.items.length
+        }
+      });
+
       return created;
     });
 
@@ -260,6 +277,7 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
     const data = dispatchUpdateSchema.parse(request.body);
     const dispatchId = (request.params as any).id as string;
     const authRole = (request as any).authUser?.role ?? "OWNER";
+    const authUserId = (request as any).authUser?.id ?? null;
     const canBypassRisk = Boolean(
       data.allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN")
     );
@@ -404,6 +422,28 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
         });
       }
 
+      await writeAuditLog(tx, {
+        companyId: existing.companyId,
+        userId: authUserId,
+        action: "DISPATCH_UPDATED",
+        entity: "DISPATCH",
+        entityId: existing.id,
+        oldValue: {
+          dispatchNumber: existing.dispatchNumber,
+          warehouseId: existing.warehouseId,
+          dealerId: existing.dealerId,
+          status: existing.status,
+          date: existing.date
+        },
+        newValue: {
+          dispatchNumber: nextDispatchNumber,
+          warehouseId: nextWarehouseId,
+          dealerId: nextDealerId,
+          status: nextStatus,
+          date: nextDate
+        }
+      });
+
       return tx.dispatch.findUnique({
         where: { id: existing.id },
         include: { items: true }
@@ -417,6 +457,7 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
     const payload = approveSchema.parse(request.body);
     const allowOverLimit = Boolean(payload?.allowOverLimit);
     const authRole = (request as any).authUser?.role ?? "OWNER";
+    const authUserId = (request as any).authUser?.id ?? null;
     const canBypassRisk = Boolean(
       allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN")
     );
@@ -498,6 +539,20 @@ export async function registerDispatchRoutes(app: FastifyInstance) {
           referenceType: "DISPATCH",
           referenceId: dispatch.id,
           date: dispatch.date
+        }
+      });
+
+      await writeAuditLog(tx, {
+        companyId: dispatch.companyId,
+        userId: authUserId,
+        action: "DISPATCH_APPROVED",
+        entity: "DISPATCH",
+        entityId: dispatch.id,
+        oldValue: {
+          status: dispatch.status
+        },
+        newValue: {
+          status: "APPROVED"
         }
       });
 

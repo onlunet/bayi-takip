@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../lib/prisma";
-import { buildRiskBlockMessage, calculateDealerRisk } from "../lib/risk";
+import prisma from "../lib/prisma.js";
+import { writeAuditLog } from "../lib/audit.js";
+import { buildRiskBlockMessage, calculateDealerRisk } from "../lib/risk.js";
 const itemSchema = z.object({
     productId: z.string().min(1),
     variantId: z.string().optional(),
@@ -138,6 +139,7 @@ export async function registerDispatchRoutes(app) {
     app.post("/dispatches", async (request, reply) => {
         const data = dispatchSchema.parse(request.body);
         const authRole = request.authUser?.role ?? "OWNER";
+        const authUserId = request.authUser?.id ?? null;
         const canBypassRisk = Boolean(data.allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN"));
         const warehouseLocation = await ensureLocation("WAREHOUSE", data.companyId, data.warehouseId);
         const dealerLocation = await ensureLocation("DEALER", data.companyId, data.dealerId);
@@ -201,6 +203,20 @@ export async function registerDispatchRoutes(app) {
                     }
                 });
             }
+            await writeAuditLog(tx, {
+                companyId: data.companyId,
+                userId: authUserId,
+                action: "DISPATCH_CREATED",
+                entity: "DISPATCH",
+                entityId: created.id,
+                newValue: {
+                    dispatchNumber: created.dispatchNumber,
+                    warehouseId: created.warehouseId,
+                    dealerId: created.dealerId,
+                    status: created.status,
+                    itemCount: created.items.length
+                }
+            });
             return created;
         });
         reply.send(dispatch);
@@ -209,6 +225,7 @@ export async function registerDispatchRoutes(app) {
         const data = dispatchUpdateSchema.parse(request.body);
         const dispatchId = request.params.id;
         const authRole = request.authUser?.role ?? "OWNER";
+        const authUserId = request.authUser?.id ?? null;
         const canBypassRisk = Boolean(data.allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN"));
         const existing = await prisma.dispatch.findUnique({
             where: { id: dispatchId },
@@ -318,6 +335,27 @@ export async function registerDispatchRoutes(app) {
                     }
                 });
             }
+            await writeAuditLog(tx, {
+                companyId: existing.companyId,
+                userId: authUserId,
+                action: "DISPATCH_UPDATED",
+                entity: "DISPATCH",
+                entityId: existing.id,
+                oldValue: {
+                    dispatchNumber: existing.dispatchNumber,
+                    warehouseId: existing.warehouseId,
+                    dealerId: existing.dealerId,
+                    status: existing.status,
+                    date: existing.date
+                },
+                newValue: {
+                    dispatchNumber: nextDispatchNumber,
+                    warehouseId: nextWarehouseId,
+                    dealerId: nextDealerId,
+                    status: nextStatus,
+                    date: nextDate
+                }
+            });
             return tx.dispatch.findUnique({
                 where: { id: existing.id },
                 include: { items: true }
@@ -329,6 +367,7 @@ export async function registerDispatchRoutes(app) {
         const payload = approveSchema.parse(request.body);
         const allowOverLimit = Boolean(payload?.allowOverLimit);
         const authRole = request.authUser?.role ?? "OWNER";
+        const authUserId = request.authUser?.id ?? null;
         const canBypassRisk = Boolean(allowOverLimit && (authRole === "OWNER" || authRole === "ADMIN"));
         const dispatch = await prisma.dispatch.findUnique({
             where: { id: request.params.id },
@@ -387,6 +426,19 @@ export async function registerDispatchRoutes(app) {
                     referenceType: "DISPATCH",
                     referenceId: dispatch.id,
                     date: dispatch.date
+                }
+            });
+            await writeAuditLog(tx, {
+                companyId: dispatch.companyId,
+                userId: authUserId,
+                action: "DISPATCH_APPROVED",
+                entity: "DISPATCH",
+                entityId: dispatch.id,
+                oldValue: {
+                    status: dispatch.status
+                },
+                newValue: {
+                    status: "APPROVED"
                 }
             });
             return updatedDispatch;

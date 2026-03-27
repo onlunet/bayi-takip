@@ -7,12 +7,24 @@
     <link rel="stylesheet" href="/styles.css" />
     <link rel="icon" href="data:," />
   </head>
-  <body>
+  <body class="page-dealer">
     <div class="bg-accent"></div>
     <header class="topbar">
-      <div>
-        <div class="brand">Bayi Portal</div>
-        <div class="subtitle">Bayi paneli</div>
+      <div class="topbar-left">
+        <button
+          id="dealerMenuToggle"
+          class="menu-toggle"
+          type="button"
+          aria-label="Menüyü ac veya kapat"
+          aria-controls="dealerSidebar"
+          aria-expanded="false"
+        >
+          <span class="menu-toggle-icon" aria-hidden="true"></span>
+        </button>
+        <div>
+          <div class="brand">Bayi Portal</div>
+          <div class="subtitle">Bayi paneli</div>
+        </div>
       </div>
       <div class="top-actions">
         <span id="dealerStatus" class="pill">Giris bekleniyor</span>
@@ -20,13 +32,15 @@
     </header>
 
     <div class="app-layout">
-      <nav class="sidebar">
+      <nav class="sidebar sidebar-drawer" id="dealerSidebar" aria-label="Bayi menuleri">
         <div class="sidebar-title">Bayi Menuleri</div>
         <div class="sidebar-group">
           <button class="nav-btn dealer-nav-btn active" data-target="dealer-home">Ana Sayfa</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-catalog">Urun Katalogu</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-order-create">Siparis Ver</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-customers">Musterilerim</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-order-history">Siparis Gecmisi</button>
+          <button class="nav-btn dealer-nav-btn" data-target="dealer-service-requests">Iade / Degisim Talepleri</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-assigned-products">Bana Verilen Urunler</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-estimated-stock">Tahmini Stok</button>
           <button class="nav-btn dealer-nav-btn" data-target="dealer-accounting">Cari Hesabim</button>
@@ -40,12 +54,13 @@
           <section class="panel">
             <div class="panel-head">
               <h2>Ana Sayfa</h2>
-              <p>API anahtariniz ile giris yapin ve panelinizi aktif edin.</p>
+              <p>E-posta ve sifre ile giris yapin. Sadece sistemde tanimli bayi hesaplari erisebilir.</p>
             </div>
             <div class="panel-body row">
-              <input id="apiKey" placeholder="API Key" />
-              <input id="markupPercent" placeholder="Kar marji %" type="number" step="0.01" />
+              <input id="dealerLoginEmail" type="email" placeholder="E-posta" />
+              <input id="dealerLoginPassword" type="password" placeholder="Sifre" />
               <button id="login" class="btn">Giris</button>
+              <button id="dealerLogout" class="btn ghost">Cikis</button>
               <button id="loadProducts" class="btn ghost">Urunleri Yukle</button>
               <button id="downloadXml" class="btn ghost">XML Indir</button>
             </div>
@@ -74,11 +89,51 @@
               <p>Kalem ekleyerek siparis olusturun.</p>
             </div>
             <div class="panel-body">
+              <div class="row">
+                <select id="dealerOrderCustomerSelect">
+                  <option value="">Musteri secin (opsiyonel)</option>
+                </select>
+                <input id="dealerOrderCustomerName" placeholder="Musteri adi (opsiyonel)" />
+                <input id="dealerOrderCustomerPhone" placeholder="Telefon (opsiyonel)" />
+                <input id="dealerOrderCustomerNote" placeholder="Musteri notu (opsiyonel)" />
+              </div>
+            </div>
+            <div class="panel-body">
               <div id="dealerOrderItems"></div>
               <div class="row">
                 <button id="dealerAddItem" class="btn ghost">Satir Ekle</button>
                 <button id="dealerSubmitOrder" class="btn">Siparis Ver</button>
               </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-customers">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Musterilerim</h2>
+              <p>Isterseniz musteri kaydi olusturun, siparisleri musteri bazinda takip edin.</p>
+            </div>
+            <div class="panel-body">
+              <input id="dealerCustomerEditId" type="hidden" />
+              <div class="row">
+                <input id="dealerCustomerName" placeholder="Musteri adi soyadi" />
+                <input id="dealerCustomerPhone" placeholder="Telefon (opsiyonel)" />
+                <input id="dealerCustomerEmail" placeholder="E-posta (opsiyonel)" />
+                <input id="dealerCustomerAddress" placeholder="Adres (opsiyonel)" />
+              </div>
+              <div class="row">
+                <input id="dealerCustomerNote" placeholder="Not (opsiyonel)" />
+                <label class="hint" style="display:flex; align-items:center; gap:8px;">
+                  <input id="dealerCustomerActive" type="checkbox" checked />
+                  Aktif
+                </label>
+                <button id="dealerCustomerSave" class="btn">Musteri Kaydet</button>
+                <button id="dealerCustomerReset" class="btn ghost">Temizle</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="dealerCustomersTable"></table>
             </div>
           </section>
         </section>
@@ -90,7 +145,43 @@
               <p>Verdiginiz siparislerin listesi.</p>
             </div>
             <div class="panel-body">
+              <div class="row">
+                <select id="dealerOrderCustomerFilter">
+                  <option value="">Tum musteriler</option>
+                </select>
+                <button id="dealerOrderHistoryRefresh" class="btn ghost">Filtre Uygula</button>
+                <button id="dealerOrderHistoryClearFilter" class="btn ghost">Temizle</button>
+              </div>
+            </div>
+            <div class="panel-body">
               <table class="table" id="dealerOrderHistoryTable"></table>
+            </div>
+          </section>
+        </section>
+
+        <section class="section dealer-section" data-section="dealer-service-requests">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Iade / Degisim / Odeme Linki</h2>
+              <p>Talep olusturup durumunu takip edin.</p>
+            </div>
+            <div class="panel-body">
+              <div class="row">
+                <select id="dealerServiceRequestType">
+                  <option value="RETURN">Iade Talebi</option>
+                  <option value="EXCHANGE">Degisim Talebi</option>
+                  <option value="PAYMENT_LINK">Odeme Linki Talebi</option>
+                  <option value="OTHER">Diger</option>
+                </select>
+                <select id="dealerServiceRequestOrderId">
+                  <option value="">Siparis secin (opsiyonel)</option>
+                </select>
+                <input id="dealerServiceRequestNote" placeholder="Kisa not" />
+                <button id="dealerSubmitServiceRequest" class="btn">Talep Gonder</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <table class="table" id="dealerServiceRequestTable"></table>
             </div>
           </section>
         </section>
@@ -139,10 +230,17 @@
             </div>
             <div class="panel-body">
               <ol class="guide-list">
-                <li>API key girerek giris yapin.</li>
+                <li>E-posta/sifre ile giris yapin.</li>
                 <li>Urunleri Yukle ile katalogu guncelleyin.</li>
                 <li>XML Indir ile feed baglantisini alin.</li>
               </ol>
+              <div class="row">
+                <input id="dealerStorefrontUrl" readonly placeholder="Musteri magazasi linki" />
+                <button id="dealerLoadStorefrontLink" class="btn ghost">Magaza Linki Getir</button>
+                <button id="dealerRotateStorefrontKey" class="btn ghost">Linki Yenile</button>
+                <button id="dealerOpenStorefront" class="btn">Magazayi Ac</button>
+              </div>
+              <div class="hint">Bu linki musterilerinize gondererek urun secimi ve siparis toplama yapabilirsiniz.</div>
             </div>
           </section>
         </section>
@@ -160,6 +258,7 @@
         </section>
       </main>
     </div>
+    <div id="dealerMenuBackdrop" class="menu-backdrop" aria-hidden="true"></div>
 
     <div id="toast" class="toast"></div>
     <script src="/dealer.js"></script>

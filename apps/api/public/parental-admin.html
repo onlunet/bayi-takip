@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Parental Yonetim Merkezi</title>
+    <link rel="stylesheet" href="/parental-admin.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div class="page-bg" aria-hidden="true"></div>
+    <main class="shell">
+      <section class="hero card">
+        <div>
+          <p class="kicker">Parental Admin</p>
+          <h1>Yonetim Merkezi</h1>
+          <p class="subtitle">Sistemi kim kullaniyor, kac aile aktif ve kullanim yogunlugu tek ekranda.</p>
+        </div>
+        <div class="hero-actions">
+          <label class="control">
+            Admin Key
+            <input id="adminKeyInput" type="password" placeholder="x-parental-admin-key" autocomplete="off" />
+          </label>
+          <div class="row">
+            <label class="control small">
+              Gun
+              <select id="daysInput">
+                <option value="7">7 gun</option>
+                <option value="14">14 gun</option>
+                <option value="30">30 gun</option>
+              </select>
+            </label>
+            <label class="control small">
+              Bitis Tarihi
+              <input id="dateInput" type="date" />
+            </label>
+          </div>
+          <div class="row">
+            <button id="saveKeyBtn" class="btn ghost" type="button">Key Kaydet</button>
+            <button id="refreshBtn" class="btn" type="button">Veriyi Yenile</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="status-row">
+        <div id="statusBox" class="status">Hazir.</div>
+        <div id="securityBadge" class="badge hidden"></div>
+      </section>
+
+      <section class="metrics-grid">
+        <article class="metric card">
+          <h2>Toplam Aile</h2>
+          <p id="metricFamilies" class="metric-value">0</p>
+        </article>
+        <article class="metric card">
+          <h2>Toplam Cocuk</h2>
+          <p id="metricChildren" class="metric-value">0</p>
+        </article>
+        <article class="metric card">
+          <h2>24s Aktif Cocuk</h2>
+          <p id="metricActiveChildren" class="metric-value">0</p>
+        </article>
+        <article class="metric card">
+          <h2>Bugun Dakika</h2>
+          <p id="metricTodayMinutes" class="metric-value">0</p>
+        </article>
+        <article class="metric card">
+          <h2>Bugun Olay</h2>
+          <p id="metricTodayEvents" class="metric-value">0</p>
+        </article>
+        <article class="metric card">
+          <h2>Aktif Ebeveyn Oturum</h2>
+          <p id="metricParentSessions" class="metric-value">0</p>
+        </article>
+      </section>
+
+      <section class="grid-two">
+        <article class="card panel">
+          <div class="panel-head">
+            <h2>Kullanim Trendi</h2>
+            <p id="trendSubtitle">Son 7 gun</p>
+          </div>
+          <div id="trendChart" class="trend-chart"></div>
+        </article>
+        <article class="card panel">
+          <div class="panel-head">
+            <h2>En Cok Kullanilan Uygulamalar</h2>
+            <p>Secili tarih araligi</p>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Uygulama</th>
+                <th>Dakika</th>
+              </tr>
+            </thead>
+            <tbody id="topAppsBody"></tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="card panel">
+        <div class="panel-head">
+          <h2>Aile Bazli Kullanim</h2>
+          <p>Kimler kullaniyor ve son gorulme bilgileri.</p>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Aile</th>
+                <th>Ebeveyn</th>
+                <th>Cocuk</th>
+                <th>24s Aktif</th>
+                <th>Bugun dk</th>
+                <th>Aralik dk</th>
+                <th>Son Gorulme</th>
+              </tr>
+            </thead>
+            <tbody id="familiesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/parental-admin.js"></script>
+  </body>
+</html>

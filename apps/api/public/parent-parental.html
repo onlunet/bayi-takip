@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ebeveyn Paneli - Ekran Kontrolu</title>
+    <link rel="stylesheet" href="/parental.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>Ebeveyn Paneli</h1>
+        <p>Kod ile cihaz bagla, politika yonet, kullanim takip et, ebeveyn dogrulama kodu uret.</p>
+        <p>Family Link zorunlu degil. Standart modla tek uygulama calisir, istersen sonradan gelismis korumaya gecebilirsin.</p>
+        <p><a class="hero-link" href="/parental-admin.html" target="_blank" rel="noopener">Sistem Yonetim Merkezi</a></p>
+        <div class="status" id="parentStatus">Hazir.</div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>1) Ebeveyn Hesabi</h2>
+            <p>Ilk kullanimda kayit olustur. Sonrasinda PIN ile tekrar gir.</p>
+          </div>
+          <div class="panel-body">
+            <form id="registerParentForm">
+              <div class="row">
+                <label>
+                  Ebeveyn Adi
+                  <input name="parentName" required placeholder="Or: Anne" />
+                </label>
+                <label>
+                  Ebeveyn PIN
+                  <input name="parentPin" required minlength="4" placeholder="Or: 1234" />
+                </label>
+              </div>
+              <div class="row">
+                <label>
+                  E-posta (opsiyonel)
+                  <input name="parentEmail" type="email" placeholder="ornek@mail.com" />
+                </label>
+                <label>
+                  Telefon (opsiyonel)
+                  <input name="parentPhone" placeholder="+90..." />
+                </label>
+              </div>
+              <div class="row">
+                <label>
+                  Ulke Kodu (opsiyonel, ISO)
+                  <input name="countryCode" placeholder="TR" maxlength="2" />
+                </label>
+                <label>
+                  Gizlilik Politikasi Versiyonu
+                  <input name="privacyPolicyVersion" value="2026.03" required />
+                </label>
+              </div>
+              <div class="row">
+                <label>
+                  Kullanim Kosullari Versiyonu
+                  <input name="termsVersion" value="2026.03" required />
+                </label>
+                <div></div>
+              </div>
+              <label>
+                <input name="prominentDisclosureAccepted" type="checkbox" required />
+                Acik bilgilendirme metnini okudum ve kabul ediyorum.
+              </label>
+              <label>
+                <input name="childMonitoringDisclosureAccepted" type="checkbox" required />
+                Cocuk izleme/kisitlama ozelliklerini cocuga aciklayacagimi kabul ediyorum.
+              </label>
+              <button class="btn" type="submit">Kayit Olustur</button>
+            </form>
+
+            <form id="loginParentForm">
+              <div class="row">
+                <label>
+                  Aile Kimligi
+                  <input id="parentFamilyId" name="familyId" required class="mono" />
+                </label>
+                <label>
+                  PIN
+                  <input name="parentPin" required minlength="4" />
+                </label>
+              </div>
+              <button class="btn ghost" type="submit">PIN ile Giris</button>
+            </form>
+            <div class="hint">Aktif oturum token'i tarayicida saklanir.</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>2) Koruma Modu</h2>
+            <p>Standart modda tek uygulama yeterli. Gelismis modda Family Link ile sistem seviyesi koruma acilir.</p>
+          </div>
+          <div class="panel-body">
+            <label>
+              Koruma Modu
+              <select id="protectionModeSelect">
+                <option value="STANDARD">Standart (Tek Uygulama)</option>
+                <option value="ENHANCED_FAMILY_LINK">Gelismis (Family Link ile)</option>
+              </select>
+            </label>
+            <button id="saveProtectionModeBtn" class="btn" type="button">Koruma Modunu Kaydet</button>
+            <div id="protectionModeHint" class="status">Mod secimi bekleniyor.</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>3) Cocuk Cihazini Koda Bagla</h2>
+            <p>Cocuk uygulamasinda bu kod ile cihaz baglanir.</p>
+          </div>
+          <div class="panel-body">
+            <label>
+              Kod Gecerlilik (dakika)
+              <input id="pairingMinutes" type="number" min="3" max="30" value="10" />
+            </label>
+            <button id="createPairCodeBtn" class="btn" type="button">Eslestirme Kodu Uret</button>
+            <div class="status ok">
+              Eslestirme Kodu: <span id="pairingCodeValue" class="mono">-</span><br />
+              Son Gecerlilik: <span id="pairingCodeExpiry" class="mono">-</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>4) Cocuklar</h2>
+            <p>Bagli cihazlari goruntule ve sec.</p>
+          </div>
+          <div class="panel-body">
+            <button id="refreshChildrenBtn" class="btn ghost" type="button">Listeyi Yenile</button>
+            <label>
+              Aktif Cocuk
+              <select id="activeChildSelect"></select>
+            </label>
+            <label>
+              Cocuk Giris Sifresi (ebeveyn belirler)
+              <input id="childPasswordInput" type="password" minlength="6" placeholder="En az 6 karakter" />
+            </label>
+            <button id="saveChildPasswordBtn" class="btn" type="button">Cocuk Sifresini Kaydet</button>
+            <div id="childrenList" class="children-list"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>5) Ebeveyn Dogrulama Kodu</h2>
+            <p>Cocuk tarafindaki kritik islemler icin tek kullanimlik kod.</p>
+          </div>
+          <div class="panel-body">
+            <button id="createParentVerifyCodeBtn" class="btn warn" type="button">Dogrulama Kodu Uret</button>
+            <div class="status">
+              Kod: <span id="parentVerifyCodeValue" class="mono">-</span><br />
+              Son Gecerlilik: <span id="parentVerifyCodeExpiry" class="mono">-</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>6) Kural Yonetimi</h2>
+            <p>Gunluk limit, uyku saati, uygulama limiti ve web filtre.</p>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <label>
+                Gunluk Limit (Hafta ici, dk)
+                <input id="limitWeekday" type="number" min="0" max="1440" value="150" />
+              </label>
+              <label>
+                Gunluk Limit (Hafta sonu, dk)
+                <input id="limitWeekend" type="number" min="0" max="1440" value="210" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Bedtime Baslangic (Hafta ici)
+                <input id="bedtimeWeekdayStart" type="time" value="21:30" />
+              </label>
+              <label>
+                Bedtime Bitis (Hafta ici)
+                <input id="bedtimeWeekdayEnd" type="time" value="07:00" />
+              </label>
+            </div>
+            <div class="row">
+              <label>
+                Bedtime Baslangic (Hafta sonu)
+                <input id="bedtimeWeekendStart" type="time" value="22:30" />
+              </label>
+              <label>
+                Bedtime Bitis (Hafta sonu)
+                <input id="bedtimeWeekendEnd" type="time" value="08:00" />
+              </label>
+            </div>
+            <label>
+              Uygulama Limitleri (satir: UygulamaAdi=dk)
+              <textarea id="appLimitsInput" placeholder="YouTube=45&#10;Chrome=30"></textarea>
+            </label>
+            <label>
+              Engellenen Alan Adlari (her satir bir alan adi)
+              <textarea id="blockedDomainsInput" placeholder="example.org"></textarea>
+            </label>
+            <label>
+              Izinli Alan Adlari (her satir bir alan adi)
+              <textarea id="allowDomainsInput"></textarea>
+            </label>
+            <label>
+              <input id="safeSearchInput" type="checkbox" checked />
+              Guvenli Arama Acik
+            </label>
+            <div class="row">
+              <button id="loadPolicyBtn" class="btn ghost" type="button">Kurallari Yukle</button>
+              <button id="savePolicyBtn" class="btn" type="button">Kurallari Kaydet</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>7) Gunluk Kullanim Ozet</h2>
+            <p>Secili cocuk icin uygulama bazli sure.</p>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <label>
+                Tarih
+                <input id="usageDateInput" type="date" />
+              </label>
+              <button id="refreshUsageSummaryBtn" class="btn ghost" type="button">Ozeti Yenile</button>
+            </div>
+            <div class="status">
+              Toplam Sure: <span id="usageTotalMinutes" class="mono">0</span> dk
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Uygulama</th>
+                  <th>Dakika</th>
+                </tr>
+              </thead>
+              <tbody id="usageByAppBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>8) Konum Takibi</h2>
+            <p>Secili cocugun son konumu ve gunluk konum gecmisi.</p>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <label>
+                Konum Tarihi
+                <input id="locationDateInput" type="date" />
+              </label>
+              <button id="refreshLocationHistoryBtn" class="btn ghost" type="button">Konum Gecmisini Yenile</button>
+            </div>
+            <button id="refreshLocationBtn" class="btn ghost" type="button">Son Konumu Yenile</button>
+            <div id="locationLatestBox" class="status">Henuz konum verisi yok.</div>
+            <a id="locationMapLink" class="hero-link" href="#" target="_blank" rel="noopener" style="display: none;"
+              >Haritada Ac</a
+            >
+            <table>
+              <thead>
+                <tr>
+                  <th>Zaman</th>
+                  <th>Koordinat</th>
+                  <th>Hassasiyet</th>
+                </tr>
+              </thead>
+              <tbody id="locationHistoryBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>9) Tum Cocuklar Genel Gorunum</h2>
+            <p>Bugun en cok hangi uygulamalar kullanildi.</p>
+          </div>
+          <div class="panel-body">
+            <button id="refreshDashboardBtn" class="btn ghost" type="button">Genel Gorunumu Yenile</button>
+            <div id="dashboardCards" class="children-list"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>10) Uyum ve Veri Haklari</h2>
+            <p>Play Store uyumu icin riza, disa aktarma ve hesap silme islemleri.</p>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <button id="refreshComplianceBtn" class="btn ghost" type="button">Uyum Durumu</button>
+              <button id="exportDataBtn" class="btn ghost" type="button">Veri Disa Aktar</button>
+            </div>
+            <pre id="complianceOutput" class="status mono" style="white-space: pre-wrap;">-</pre>
+            <form id="deleteAccountForm">
+              <label>
+                Ebeveyn PIN (silme icin)
+                <input name="parentPin" required minlength="4" />
+              </label>
+              <label>
+                Onay kelimesi
+                <input name="confirmation" value="DELETE" required />
+              </label>
+              <button class="btn danger" type="submit">Hesabi Kalici Sil</button>
+            </form>
+            <div class="hint">Harici silme sayfasi: /account-deletion.html</div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script src="/parent-parental.js"></script>
+  </body>
+</html>

@@ -2,7 +2,8 @@ import { FastifyInstance } from "fastify";
 import axios from "axios";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
+import { writeAuditLog } from "../lib/audit.js";
 
 async function ensureDealerLocation(companyId: string, dealerId: string) {
   const existing = await prisma.location.findFirst({
@@ -46,7 +47,8 @@ const syncRequestSchema = z
     from: z.string().optional(),
     to: z.string().optional(),
     maxPages: z.coerce.number().int().min(1).max(5000).optional(),
-    perPage: z.coerce.number().int().min(1).max(100).optional()
+    perPage: z.coerce.number().int().min(1).max(100).optional(),
+    idempotencyKey: z.string().min(8).max(120).optional()
   })
   .optional();
 
@@ -87,6 +89,12 @@ function parseWooCreatedAt(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return new Date();
   return date;
+}
+
+function compactObject(value: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field !== undefined)
+  );
 }
 
 async function syncWooIntegration(integrationId: string, options: SyncWooOptions = {}) {
@@ -327,6 +335,157 @@ async function syncWooIntegration(integrationId: string, options: SyncWooOptions
   return { imported, skipped, unmapped, processed, fetchedPages, cursorUpdated: shouldUpdateCursor };
 }
 
+function mapResultToJobStatus(result: {
+  imported: number;
+  skipped: number;
+  unmapped: number;
+  processed: number;
+}) {
+  if (result.processed === 0) return "SUCCESS" as const;
+  if (result.unmapped > 0) return "PARTIAL" as const;
+  return "SUCCESS" as const;
+}
+
+async function runIntegrationSyncJob(jobId: string, authUserId?: string | null) {
+  const job = await prisma.integrationSyncJob.findUnique({
+    where: { id: jobId },
+    include: {
+      integration: {
+        select: {
+          id: true,
+          companyId: true,
+          dealerId: true,
+          platform: true
+        }
+      }
+    }
+  });
+
+  if (!job) {
+    throw new Error("Sync isi bulunamadi");
+  }
+
+  const startedAt = new Date();
+  const attemptNo = await prisma.integrationSyncAttempt.count({
+    where: { jobId: job.id }
+  });
+
+  const attempt = await prisma.integrationSyncAttempt.create({
+    data: {
+      jobId: job.id,
+      attempt: attemptNo + 1,
+      status: "RUNNING",
+      startedAt
+    }
+  });
+
+  await prisma.integrationSyncJob.update({
+    where: { id: job.id },
+    data: {
+      status: "RUNNING",
+      startedAt
+    }
+  });
+
+  const options = (job.options ?? {}) as SyncWooOptions;
+
+  try {
+    const result = await syncWooIntegration(job.integrationId, options);
+    const jobStatus = mapResultToJobStatus(result);
+    const endedAt = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.integrationSyncAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: jobStatus,
+          summary: result as Prisma.InputJsonValue,
+          endedAt
+        }
+      });
+
+      await tx.integrationSyncJob.update({
+        where: { id: job.id },
+        data: {
+          status: jobStatus,
+          summary: result as Prisma.InputJsonValue,
+          errorMessage: null,
+          endedAt
+        }
+      });
+
+      await writeAuditLog(tx, {
+        companyId: job.integration.companyId,
+        userId: authUserId,
+        action: "INTEGRATION_SYNC_COMPLETED",
+        entity: "INTEGRATION",
+        entityId: job.integrationId,
+        newValue: {
+          jobId: job.id,
+          attempt: attempt.attempt,
+          status: jobStatus,
+          ...result
+        }
+      });
+    });
+
+    return {
+      jobId: job.id,
+      status: jobStatus,
+      ...result
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Bilinmeyen sync hatasi";
+    const endedAt = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.integrationSyncAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: "FAILED",
+          errorMessage: message,
+          endedAt
+        }
+      });
+
+      await tx.integrationSyncJob.update({
+        where: { id: job.id },
+        data: {
+          status: "FAILED",
+          errorMessage: message,
+          endedAt
+        }
+      });
+
+      await tx.integrationLog.create({
+        data: {
+          companyId: job.integration.companyId,
+          dealerId: job.integration.dealerId,
+          platform: job.integration.platform,
+          status: "ERROR",
+          errorMessage: message
+        }
+      });
+
+      await writeAuditLog(tx, {
+        companyId: job.integration.companyId,
+        userId: authUserId,
+        action: "INTEGRATION_SYNC_FAILED",
+        entity: "INTEGRATION",
+        entityId: job.integrationId,
+        newValue: {
+          jobId: job.id,
+          attempt: attempt.attempt,
+          status: "FAILED",
+          errorMessage: message
+        }
+      });
+    });
+
+    throw error;
+  }
+}
+
 export async function registerIntegrationRoutes(app: FastifyInstance) {
   app.get("/integrations/dealer-summary", async (request, reply) => {
     const companyId = (request.query as any).companyId as string | undefined;
@@ -400,31 +559,170 @@ export async function registerIntegrationRoutes(app: FastifyInstance) {
     reply.send(logs);
   });
 
+  app.get("/integrations/jobs", async (request, reply) => {
+    const companyId = (request.query as any).companyId as string | undefined;
+    const dealerId = (request.query as any).dealerId as string | undefined;
+    const integrationId = (request.query as any).integrationId as string | undefined;
+    const status = (request.query as any).status as
+      | "PENDING"
+      | "RUNNING"
+      | "SUCCESS"
+      | "PARTIAL"
+      | "FAILED"
+      | undefined;
+
+    const jobs = await prisma.integrationSyncJob.findMany({
+      where: {
+        ...(companyId ? { companyId } : {}),
+        ...(dealerId ? { dealerId } : {}),
+        ...(integrationId ? { integrationId } : {}),
+        ...(status ? { status } : {})
+      },
+      include: {
+        attempts: {
+          orderBy: { attempt: "desc" },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 300
+    });
+
+    reply.send(
+      jobs.map((job) => ({
+        id: job.id,
+        companyId: job.companyId,
+        dealerId: job.dealerId,
+        integrationId: job.integrationId,
+        platform: job.platform,
+        status: job.status,
+        idempotencyKey: job.idempotencyKey,
+        options: job.options,
+        summary: job.summary,
+        errorMessage: job.errorMessage,
+        startedAt: job.startedAt,
+        endedAt: job.endedAt,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+        latestAttempt: job.attempts[0] ?? null
+      }))
+    );
+  });
+
   app.post("/integrations/:id/sync", async (request, reply) => {
     try {
-      const payload = syncRequestSchema.parse(request.body);
-      const result = await syncWooIntegration((request.params as any).id, payload ?? {});
-      reply.send({ ok: true, ...result });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Bilinmeyen sync hatasi";
+      const integrationId = (request.params as any).id as string;
+      const payload = syncRequestSchema.parse(request.body) ?? {};
+      const authUserId = (request as any).authUser?.id ?? null;
+
       const integration = await prisma.dealerIntegration.findUnique({
-        where: { id: (request.params as any).id },
-        select: { companyId: true, dealerId: true }
+        where: { id: integrationId },
+        select: {
+          id: true,
+          companyId: true,
+          dealerId: true,
+          platform: true,
+          active: true
+        }
       });
 
-      if (integration) {
-        await prisma.integrationLog.create({
-          data: {
-            companyId: integration.companyId,
-            dealerId: integration.dealerId,
-            platform: "WOO",
-            status: "ERROR",
-            errorMessage: message
-          }
-        });
+      if (!integration) {
+        reply.status(404).send({ message: "Entegrasyon bulunamadi" });
+        return;
       }
 
+      if (!integration.active) {
+        reply.status(400).send({ message: "Pasif entegrasyon icin sync baslatilamaz" });
+        return;
+      }
+
+      if (payload.idempotencyKey) {
+        const existing = await prisma.integrationSyncJob.findFirst({
+          where: {
+            integrationId,
+            idempotencyKey: payload.idempotencyKey,
+            status: { in: ["RUNNING", "SUCCESS", "PARTIAL"] }
+          },
+          orderBy: { createdAt: "desc" }
+        });
+
+        if (existing) {
+          reply.send({
+            ok: true,
+            reused: true,
+            jobId: existing.id,
+            status: existing.status,
+            summary: existing.summary
+          });
+          return;
+        }
+      }
+
+      const { idempotencyKey, ...syncOptions } = payload;
+      const compactOptions = compactObject(syncOptions as Record<string, unknown>);
+      const createdJob = await prisma.integrationSyncJob.create({
+        data: {
+          companyId: integration.companyId,
+          dealerId: integration.dealerId,
+          integrationId: integration.id,
+          platform: integration.platform,
+          status: "PENDING",
+          idempotencyKey: idempotencyKey ?? null,
+          options: compactOptions as Prisma.InputJsonValue
+        }
+      });
+
+      const result = await runIntegrationSyncJob(createdJob.id, authUserId);
+      reply.send({ ok: true, reused: false, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bilinmeyen sync hatasi";
       reply.status(500).send({ message: "Sync sirasinda hata olustu", detail: message });
+    }
+  });
+
+  app.post("/integrations/jobs/:id/replay", async (request, reply) => {
+    const sourceJob = await prisma.integrationSyncJob.findUnique({
+      where: { id: (request.params as any).id },
+      select: {
+        id: true,
+        companyId: true,
+        dealerId: true,
+        integrationId: true,
+        platform: true,
+        options: true
+      }
+    });
+
+    if (!sourceJob) {
+      reply.status(404).send({ message: "Replay kaynagi bulunamadi" });
+      return;
+    }
+
+    const authUserId = (request as any).authUser?.id ?? null;
+    const baseOptions =
+      sourceJob.options && typeof sourceJob.options === "object" && !Array.isArray(sourceJob.options)
+        ? (sourceJob.options as Record<string, unknown>)
+        : {};
+    const nextJob = await prisma.integrationSyncJob.create({
+      data: {
+        companyId: sourceJob.companyId,
+        dealerId: sourceJob.dealerId,
+        integrationId: sourceJob.integrationId,
+        platform: sourceJob.platform,
+        status: "PENDING",
+        options: {
+          ...baseOptions,
+          replayOf: sourceJob.id
+        } as Prisma.InputJsonValue
+      }
+    });
+
+    try {
+      const result = await runIntegrationSyncJob(nextJob.id, authUserId);
+      reply.send({ ok: true, replayOf: sourceJob.id, ...result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Replay sirasinda hata olustu";
+      reply.status(500).send({ message, jobId: nextJob.id });
     }
   });
 }

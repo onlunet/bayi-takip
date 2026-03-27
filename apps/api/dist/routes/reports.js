@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 function buildCreatedAtRange(from, to) {
     if (!from && !to)
         return undefined;
@@ -39,6 +39,34 @@ function round2(value) {
 function decimalToNumber(value) {
     const parsed = Number(value ?? 0);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+function isRecoverableReportQueryError(error) {
+    const code = error?.code;
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const normalized = message.toLowerCase();
+    if (code === "P2022" || code === "P2010")
+        return true;
+    if (normalized.includes("does not exist"))
+        return true;
+    if (normalized.includes("unknown field"))
+        return true;
+    if (normalized.includes("unknown arg"))
+        return true;
+    if (normalized.includes("cannot read properties of undefined"))
+        return true;
+    return false;
+}
+async function getTableColumns(tableName) {
+    try {
+        const rows = await prisma.$queryRawUnsafe(`SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = current_schema()
+         AND table_name = $1`, tableName);
+        return new Set(rows.map((row) => row.column_name));
+    }
+    catch {
+        return new Set();
+    }
 }
 function getUrgency(coverageDays, dailyAverage, safetyDays, targetCoverageDays) {
     if (dailyAverage <= 0)
@@ -204,45 +232,148 @@ export async function registerReportRoutes(app) {
         const from = request.query.from;
         const to = request.query.to;
         const createdAt = buildCreatedAtRange(from, to);
-        const orderWhere = {
-            companyId,
-            channel: "WOO",
-            ...(createdAt ? { createdAt } : {})
-        };
-        const mappedItems = await prisma.orderItem.findMany({
-            where: { order: orderWhere, product: { is: { active: true } } },
-            include: {
-                product: true,
-                variant: true,
-                order: { select: { id: true } }
-            }
-        });
-        const mappedGrouped = new Map();
-        for (const item of mappedItems) {
-            const key = `${item.productId}:${item.variantId ?? ""}`;
-            const existing = mappedGrouped.get(key) ?? {
-                name: item.variant ? `${item.product.name} / ${item.variant.name}` : item.product.name,
-                unit: item.variant?.unit ?? item.product.unit,
-                totalQuantity: 0,
-                totalAmount: 0,
-                orderIds: new Set(),
-                source: "MAPPED"
+        const loadMappedRows = async () => {
+            const orderItemDelegate = prisma.orderItem;
+            const loadWithSqlFallback = async () => {
+                const orderColumns = await getTableColumns("Order");
+                const orderItemColumns = await getTableColumns("OrderItem");
+                const productColumns = await getTableColumns("Product");
+                if (!orderColumns.has("companyId") || !orderItemColumns.has("orderId") || !orderItemColumns.has("productId")) {
+                    return [];
+                }
+                if (!productColumns.has("id") || !productColumns.has("name") || !productColumns.has("unit")) {
+                    return [];
+                }
+                const whereParts = [`o."companyId" = $1`];
+                const params = [companyId];
+                const hasChannel = orderColumns.has("channel");
+                const hasSource = orderColumns.has("source");
+                if (hasChannel) {
+                    whereParts.push(`UPPER(COALESCE(o."channel"::text, '')) = 'WOO'`);
+                }
+                else if (hasSource) {
+                    whereParts.push(`UPPER(COALESCE(o."source"::text, '')) = 'WOO'`);
+                }
+                if (createdAt?.gte && orderColumns.has("createdAt")) {
+                    params.push(createdAt.gte);
+                    whereParts.push(`o."createdAt" >= $${params.length}`);
+                }
+                if (createdAt?.lte && orderColumns.has("createdAt")) {
+                    params.push(createdAt.lte);
+                    whereParts.push(`o."createdAt" <= $${params.length}`);
+                }
+                const quantityExpr = orderItemColumns.has("quantity") ? `COALESCE(oi."quantity", 0)` : "0";
+                const totalExpr = orderItemColumns.has("total")
+                    ? `COALESCE(oi."total", 0)`
+                    : orderItemColumns.has("unitPrice")
+                        ? `${quantityExpr} * COALESCE(oi."unitPrice", 0)`
+                        : "0";
+                const sqlRows = await prisma.$queryRawUnsafe(`SELECT p."name" AS "name",
+                  p."unit"::text AS "unit",
+                  SUM(${quantityExpr}) AS "totalQuantity",
+                  SUM(${totalExpr}) AS "totalAmount",
+                  COUNT(DISTINCT oi."orderId") AS "totalOrders"
+           FROM "OrderItem" oi
+           INNER JOIN "Order" o ON o."id" = oi."orderId"
+           INNER JOIN "Product" p ON p."id" = oi."productId"
+           WHERE ${whereParts.join(" AND ")}
+           GROUP BY p."name", p."unit"
+           ORDER BY SUM(${quantityExpr}) DESC`, ...params);
+                return sqlRows.map((row) => ({
+                    name: row.name,
+                    unit: row.unit,
+                    totalQuantity: round2(decimalToNumber(row.totalQuantity)),
+                    totalAmount: round2(decimalToNumber(row.totalAmount)),
+                    totalOrders: Math.max(0, Math.round(decimalToNumber(row.totalOrders))),
+                    source: "MAPPED"
+                }));
             };
-            existing.totalQuantity += Number(item.quantity ?? 0);
-            existing.totalAmount += Number(item.total ?? 0);
-            existing.orderIds.add(item.order.id);
-            mappedGrouped.set(key, existing);
-        }
-        const logWhere = {
-            companyId,
-            platform: "WOO",
-            status: "UNMAPPED",
-            ...(createdAt ? { createdAt } : {})
+            if (!orderItemDelegate?.findMany) {
+                request.log.warn("orderItem delegate missing, woo-product-sales SQL fallback is used");
+                try {
+                    return await loadWithSqlFallback();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "woo-product-sales SQL fallback failed");
+                    return [];
+                }
+            }
+            try {
+                const orderWhere = {
+                    companyId,
+                    channel: "WOO",
+                    ...(createdAt ? { createdAt } : {})
+                };
+                const mappedItems = await orderItemDelegate.findMany({
+                    where: { order: orderWhere },
+                    include: {
+                        product: { select: { name: true, unit: true, active: true } },
+                        variant: { select: { name: true, unit: true } },
+                        order: { select: { id: true } }
+                    }
+                });
+                const grouped = new Map();
+                for (const item of mappedItems) {
+                    if (item.product?.active === false)
+                        continue;
+                    const key = `${item.productId}:${item.variantId ?? ""}`;
+                    const existing = grouped.get(key) ?? {
+                        name: item.variant ? `${item.product.name} / ${item.variant.name}` : item.product.name,
+                        unit: item.variant?.unit ?? item.product.unit,
+                        totalQuantity: 0,
+                        totalAmount: 0,
+                        orderIds: new Set(),
+                        source: "MAPPED"
+                    };
+                    existing.totalQuantity += decimalToNumber(item.quantity);
+                    existing.totalAmount += decimalToNumber(item.total);
+                    if (item.order?.id) {
+                        existing.orderIds.add(item.order.id);
+                    }
+                    grouped.set(key, existing);
+                }
+                return Array.from(grouped.values()).map((row) => ({
+                    name: row.name,
+                    unit: row.unit,
+                    totalQuantity: round2(decimalToNumber(row.totalQuantity)),
+                    totalAmount: round2(decimalToNumber(row.totalAmount)),
+                    totalOrders: row.orderIds?.size ?? 0,
+                    source: row.source
+                }));
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "woo-product-sales prisma query failed, SQL fallback is used");
+                try {
+                    return await loadWithSqlFallback();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "woo-product-sales SQL fallback failed");
+                    return [];
+                }
+            }
         };
-        const unmappedLogs = await prisma.integrationLog.findMany({
-            where: logWhere,
-            orderBy: { createdAt: "desc" }
-        });
+        const mappedRows = await loadMappedRows();
+        let unmappedLogs = [];
+        try {
+            const logWhere = {
+                companyId,
+                platform: "WOO",
+                status: "UNMAPPED",
+                ...(createdAt ? { createdAt } : {})
+            };
+            unmappedLogs = await prisma.integrationLog.findMany({
+                where: logWhere,
+                orderBy: { createdAt: "desc" }
+            });
+        }
+        catch (error) {
+            if (!isRecoverableReportQueryError(error))
+                throw error;
+            request.log.warn({ error }, "woo-product-sales unmapped logs query skipped due compatibility issue");
+            unmappedLogs = [];
+        }
         const uniqueLines = new Map();
         for (const log of unmappedLogs) {
             const payload = (log.payload ?? {});
@@ -274,14 +405,6 @@ export async function registerReportRoutes(app) {
             existing.totalOrders += 1;
             unmappedGrouped.set(key, existing);
         }
-        const mappedRows = Array.from(mappedGrouped.values()).map((row) => ({
-            name: row.name,
-            unit: row.unit,
-            totalQuantity: row.totalQuantity,
-            totalAmount: row.totalAmount,
-            totalOrders: row.orderIds.size,
-            source: row.source
-        }));
         const unmappedRows = Array.from(unmappedGrouped.values());
         const rows = [...mappedRows, ...unmappedRows].sort((a, b) => b.totalQuantity - a.totalQuantity);
         reply.send(rows);
@@ -296,49 +419,201 @@ export async function registerReportRoutes(app) {
         const to = request.query.to;
         const orderCreatedAt = buildCreatedAtRange(from, to);
         const dispatchDate = buildCreatedAtRange(from, to);
+        const stockMovementDelegate = prisma.stockMovement;
+        const orderItemDelegate = prisma.orderItem;
+        const dispatchItemDelegate = prisma.dispatchItem;
+        const loadBalanceRows = async () => {
+            if (!stockMovementDelegate?.groupBy) {
+                request.log.warn("stockMovement delegate missing, stock balance query skipped");
+                return [];
+            }
+            try {
+                return await stockMovementDelegate.groupBy({
+                    by: ["productId"],
+                    where: { companyId },
+                    _sum: { quantity: true }
+                });
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "product-summary balance groupBy failed, using SQL fallback");
+                try {
+                    const rows = await prisma.$queryRawUnsafe(`SELECT "productId", SUM("quantity") AS "quantity"
+             FROM "StockMovement"
+             WHERE "companyId" = $1
+             GROUP BY "productId"`, companyId);
+                    return rows.map((row) => ({ productId: row.productId, _sum: { quantity: row.quantity } }));
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary balance SQL fallback failed");
+                    return [];
+                }
+            }
+        };
+        const loadStockEntryRows = async () => {
+            if (!stockMovementDelegate?.groupBy)
+                return [];
+            try {
+                return await stockMovementDelegate.groupBy({
+                    by: ["productId", "type"],
+                    where: {
+                        companyId,
+                        type: { in: ["PRODUCTION", "RETURN", "ADJUSTMENT"] }
+                    },
+                    _sum: { quantity: true }
+                });
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "product-summary stock-entry groupBy failed, using SQL fallback");
+                try {
+                    const rows = await prisma.$queryRawUnsafe(`SELECT "productId", "type", SUM("quantity") AS "quantity"
+             FROM "StockMovement"
+             WHERE "companyId" = $1
+               AND "type" IN ('PRODUCTION', 'RETURN', 'ADJUSTMENT')
+             GROUP BY "productId", "type"`, companyId);
+                    return rows.map((row) => ({ productId: row.productId, type: row.type, _sum: { quantity: row.quantity } }));
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary stock-entry SQL fallback failed");
+                    return [];
+                }
+            }
+        };
+        const loadSalesRowsWithSql = async () => {
+            const conditions = [`o."companyId" = $1`];
+            const params = [companyId];
+            if (orderCreatedAt?.gte) {
+                params.push(orderCreatedAt.gte);
+                conditions.push(`o."createdAt" >= $${params.length}`);
+            }
+            if (orderCreatedAt?.lte) {
+                params.push(orderCreatedAt.lte);
+                conditions.push(`o."createdAt" <= $${params.length}`);
+            }
+            const rows = await prisma.$queryRawUnsafe(`SELECT oi."productId" AS "productId",
+                oi."quantity" AS "quantity",
+                o."channel" AS "channel"
+         FROM "OrderItem" oi
+         INNER JOIN "Order" o ON o."id" = oi."orderId"
+         WHERE ${conditions.join(" AND ")}`, ...params);
+            return rows.map((row) => ({
+                productId: row.productId,
+                quantity: row.quantity,
+                order: { channel: row.channel ?? "MANUAL" },
+                variant: null
+            }));
+        };
+        const loadSalesRows = async () => {
+            if (!orderItemDelegate?.findMany) {
+                request.log.warn("orderItem delegate missing, using SQL fallback for sales rows");
+                try {
+                    return await loadSalesRowsWithSql();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary sales SQL fallback failed");
+                    return [];
+                }
+            }
+            try {
+                return await orderItemDelegate.findMany({
+                    where: {
+                        order: {
+                            companyId,
+                            ...(orderCreatedAt ? { createdAt: orderCreatedAt } : {})
+                        }
+                    },
+                    include: {
+                        order: { select: { channel: true } },
+                        variant: { select: { multiplier: true } }
+                    }
+                });
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "product-summary sales query failed, using SQL fallback");
+                try {
+                    return await loadSalesRowsWithSql();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary sales SQL fallback failed");
+                    return [];
+                }
+            }
+        };
+        const loadDispatchRowsWithSql = async () => {
+            const conditions = [`d."companyId" = $1`];
+            const params = [companyId];
+            if (dispatchDate?.gte) {
+                params.push(dispatchDate.gte);
+                conditions.push(`d."createdAt" >= $${params.length}`);
+            }
+            if (dispatchDate?.lte) {
+                params.push(dispatchDate.lte);
+                conditions.push(`d."createdAt" <= $${params.length}`);
+            }
+            const rows = await prisma.$queryRawUnsafe(`SELECT di."productId" AS "productId",
+                di."quantity" AS "quantity"
+         FROM "DispatchItem" di
+         INNER JOIN "Dispatch" d ON d."id" = di."dispatchId"
+         WHERE ${conditions.join(" AND ")}`, ...params);
+            return rows.map((row) => ({
+                productId: row.productId,
+                quantity: row.quantity,
+                variant: null
+            }));
+        };
+        const loadDispatchRows = async () => {
+            if (!dispatchItemDelegate?.findMany) {
+                request.log.warn("dispatchItem delegate missing, using SQL fallback for dispatch rows");
+                try {
+                    return await loadDispatchRowsWithSql();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary dispatch SQL fallback failed");
+                    return [];
+                }
+            }
+            try {
+                return await dispatchItemDelegate.findMany({
+                    where: {
+                        dispatch: {
+                            companyId,
+                            status: "APPROVED",
+                            ...(dispatchDate ? { date: dispatchDate } : {})
+                        }
+                    },
+                    include: {
+                        variant: { select: { multiplier: true } }
+                    }
+                });
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "product-summary dispatch query failed, using SQL fallback");
+                try {
+                    return await loadDispatchRowsWithSql();
+                }
+                catch (fallbackError) {
+                    request.log.error({ error: fallbackError }, "product-summary dispatch SQL fallback failed");
+                    return [];
+                }
+            }
+        };
         const [products, balanceRows, stockEntryRows, salesItems, dispatchItems] = await Promise.all([
             prisma.product.findMany({
                 where: { companyId, active: true },
                 select: { id: true, name: true, unit: true },
                 orderBy: { name: "asc" }
             }),
-            prisma.stockMovement.groupBy({
-                by: ["productId"],
-                where: { companyId },
-                _sum: { quantity: true }
-            }),
-            prisma.stockMovement.groupBy({
-                by: ["productId", "type"],
-                where: {
-                    companyId,
-                    type: { in: ["PRODUCTION", "RETURN", "ADJUSTMENT"] }
-                },
-                _sum: { quantity: true }
-            }),
-            prisma.orderItem.findMany({
-                where: {
-                    order: {
-                        companyId,
-                        ...(orderCreatedAt ? { createdAt: orderCreatedAt } : {})
-                    }
-                },
-                include: {
-                    order: { select: { channel: true } },
-                    variant: { select: { multiplier: true } }
-                }
-            }),
-            prisma.dispatchItem.findMany({
-                where: {
-                    dispatch: {
-                        companyId,
-                        status: "APPROVED",
-                        ...(dispatchDate ? { date: dispatchDate } : {})
-                    }
-                },
-                include: {
-                    variant: { select: { multiplier: true } }
-                }
-            })
+            loadBalanceRows(),
+            loadStockEntryRows(),
+            loadSalesRows(),
+            loadDispatchRows()
         ]);
         const balanceByProduct = new Map();
         for (const row of balanceRows) {
@@ -359,7 +634,8 @@ export async function registerReportRoutes(app) {
                 continue;
             const totalCurrent = totalSalesByProduct.get(item.productId) ?? 0;
             totalSalesByProduct.set(item.productId, totalCurrent + quantity);
-            if (item.order.channel !== "MANUAL") {
+            const channel = item.order?.channel ?? "MANUAL";
+            if (channel !== "MANUAL") {
                 const apiCurrent = apiSalesByProduct.get(item.productId) ?? 0;
                 apiSalesByProduct.set(item.productId, apiCurrent + quantity);
             }
@@ -491,65 +767,245 @@ export async function registerReportRoutes(app) {
         const sevenStart = startOfDayDaysAgo(7);
         const fourteenStart = startOfDayDaysAgo(14);
         const thirtyStart = startOfDayDaysAgo(30);
-        const products = await prisma.product.findMany({
-            where: { companyId, active: true },
-            select: { id: true, name: true, unit: true },
-            orderBy: { name: "asc" }
-        });
-        const warehouseLocations = await prisma.location.findMany({
-            where: { companyId, type: "WAREHOUSE" },
-            select: { id: true }
-        });
-        const warehouseLocationIds = warehouseLocations.map((item) => item.id);
-        const [orderItems, networkBalancesRaw, warehouseBalancesRaw, warehouseMovesRaw] = await Promise.all([
-            prisma.orderItem.findMany({
-                where: {
-                    order: {
-                        companyId,
-                        status: { not: "CANCELLED" },
-                        createdAt: { gte: lookbackStart }
-                    },
-                    product: { active: true }
-                },
-                include: {
-                    order: { select: { createdAt: true, channel: true } },
-                    variant: { select: { multiplier: true } }
-                }
-            }),
-            prisma.stockMovement.groupBy({
-                by: ["productId"],
-                where: { companyId },
-                _sum: { quantity: true }
-            }),
-            warehouseLocationIds.length
-                ? prisma.stockMovement.groupBy({
-                    by: ["productId"],
-                    where: { companyId, locationId: { in: warehouseLocationIds } },
-                    _sum: { quantity: true }
-                })
-                : Promise.resolve([]),
-            warehouseLocationIds.length
-                ? prisma.stockMovement.groupBy({
-                    by: ["productId", "type"],
-                    where: {
-                        companyId,
-                        locationId: { in: warehouseLocationIds },
-                        createdAt: { gte: lookbackStart }
-                    },
-                    _sum: { quantity: true }
-                })
-                : Promise.resolve([])
+        const [productColumns, locationColumns, orderColumns, orderItemColumns, variantColumns, stockColumns] = await Promise.all([
+            getTableColumns("Product"),
+            getTableColumns("Location"),
+            getTableColumns("Order"),
+            getTableColumns("OrderItem"),
+            getTableColumns("ProductVariant"),
+            getTableColumns("StockMovement")
         ]);
+        const loadProducts = async () => {
+            try {
+                return await prisma.product.findMany({
+                    where: { companyId, active: true },
+                    select: { id: true, name: true, unit: true },
+                    orderBy: { name: "asc" }
+                });
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "production-plan products query failed, SQL fallback is used");
+            }
+            if (!productColumns.has("id") || !productColumns.has("name"))
+                return [];
+            const whereParts = [`p."companyId" = $1`];
+            const params = [companyId];
+            if (productColumns.has("active")) {
+                whereParts.push(`COALESCE(p."active", true) = true`);
+            }
+            const unitExpr = productColumns.has("unit") ? `p."unit"::text` : `'PIECE'`;
+            try {
+                const rows = await prisma.$queryRawUnsafe(`SELECT p."id" AS "id", p."name" AS "name", ${unitExpr} AS "unit"
+           FROM "Product" p
+           WHERE ${whereParts.join(" AND ")}
+           ORDER BY p."name" ASC`, ...params);
+                return rows.map((row) => ({
+                    id: row.id,
+                    name: row.name,
+                    unit: row.unit ?? "PIECE"
+                }));
+            }
+            catch (fallbackError) {
+                request.log.error({ error: fallbackError }, "production-plan products SQL fallback failed");
+                return [];
+            }
+        };
+        const loadWarehouseLocationIds = async () => {
+            if (!locationColumns.has("id") || !locationColumns.has("companyId") || !locationColumns.has("type")) {
+                return [];
+            }
+            try {
+                const rows = await prisma.location.findMany({
+                    where: { companyId, type: "WAREHOUSE" },
+                    select: { id: true }
+                });
+                return rows.map((item) => item.id);
+            }
+            catch (error) {
+                if (!isRecoverableReportQueryError(error))
+                    throw error;
+                request.log.warn({ error }, "production-plan warehouse locations query failed, SQL fallback is used");
+            }
+            try {
+                const rows = await prisma.$queryRawUnsafe(`SELECT "id" FROM "Location"
+           WHERE "companyId" = $1 AND "type"::text = 'WAREHOUSE'`, companyId);
+                return rows.map((item) => item.id);
+            }
+            catch (fallbackError) {
+                request.log.error({ error: fallbackError }, "production-plan warehouse locations SQL fallback failed");
+                return [];
+            }
+        };
+        const loadOrderItems = async () => {
+            if (!orderItemColumns.has("productId") || !orderItemColumns.has("orderId")) {
+                return [];
+            }
+            const whereParts = [];
+            const params = [];
+            if (orderColumns.has("companyId")) {
+                params.push(companyId);
+                whereParts.push(`o."companyId" = $${params.length}`);
+            }
+            if (orderColumns.has("status")) {
+                whereParts.push(`COALESCE(o."status"::text, '') <> 'CANCELLED'`);
+            }
+            if (orderColumns.has("createdAt")) {
+                params.push(lookbackStart);
+                whereParts.push(`o."createdAt" >= $${params.length}`);
+            }
+            if (!whereParts.length)
+                return [];
+            const channelExpr = orderColumns.has("channel")
+                ? `COALESCE(o."channel"::text, 'MANUAL')`
+                : orderColumns.has("source")
+                    ? `COALESCE(o."source"::text, 'MANUAL')`
+                    : `'MANUAL'`;
+            const createdAtExpr = orderColumns.has("createdAt") ? `o."createdAt"` : "CURRENT_TIMESTAMP";
+            const hasVariantMultiplier = orderItemColumns.has("variantId") && variantColumns.has("id") && variantColumns.has("multiplier");
+            const quantityExpr = hasVariantMultiplier
+                ? `COALESCE(oi."quantity", 0) * COALESCE(pv."multiplier", 1)`
+                : `COALESCE(oi."quantity", 0)`;
+            const variantJoin = hasVariantMultiplier ? `LEFT JOIN "ProductVariant" pv ON pv."id" = oi."variantId"` : "";
+            try {
+                return await prisma.$queryRawUnsafe(`SELECT
+             oi."productId" AS "productId",
+             ${quantityExpr} AS "quantity",
+             ${createdAtExpr} AS "createdAt",
+             ${channelExpr} AS "channel"
+           FROM "OrderItem" oi
+           INNER JOIN "Order" o ON o."id" = oi."orderId"
+           ${variantJoin}
+           WHERE ${whereParts.join(" AND ")}`, ...params);
+            }
+            catch (error) {
+                request.log.error({ error }, "production-plan order items SQL query failed");
+                return [];
+            }
+        };
+        const loadNetworkBalances = async () => {
+            if (!stockColumns.has("productId") || !stockColumns.has("quantity")) {
+                return [];
+            }
+            const whereParts = [];
+            const params = [];
+            if (stockColumns.has("companyId")) {
+                params.push(companyId);
+                whereParts.push(`"companyId" = $${params.length}`);
+            }
+            try {
+                return await prisma.$queryRawUnsafe(`SELECT "productId", SUM("quantity") AS "quantity"
+           FROM "StockMovement"
+           ${whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : ""}
+           GROUP BY "productId"`, ...params);
+            }
+            catch (error) {
+                request.log.error({ error }, "production-plan network balances SQL query failed");
+                return [];
+            }
+        };
+        const loadWarehouseBalances = async (warehouseLocationIds) => {
+            if (!warehouseLocationIds.length ||
+                !stockColumns.has("productId") ||
+                !stockColumns.has("quantity") ||
+                !stockColumns.has("locationId")) {
+                return [];
+            }
+            const params = [];
+            const whereParts = [];
+            if (stockColumns.has("companyId")) {
+                params.push(companyId);
+                whereParts.push(`"companyId" = $${params.length}`);
+            }
+            const locationPlaceholders = warehouseLocationIds
+                .map((locationId) => {
+                params.push(locationId);
+                return `$${params.length}`;
+            })
+                .join(", ");
+            whereParts.push(`"locationId" IN (${locationPlaceholders})`);
+            try {
+                return await prisma.$queryRawUnsafe(`SELECT "productId", SUM("quantity") AS "quantity"
+           FROM "StockMovement"
+           WHERE ${whereParts.join(" AND ")}
+           GROUP BY "productId"`, ...params);
+            }
+            catch (error) {
+                request.log.error({ error }, "production-plan warehouse balances SQL query failed");
+                return [];
+            }
+        };
+        const loadWarehouseMoves = async (warehouseLocationIds) => {
+            if (!warehouseLocationIds.length ||
+                !stockColumns.has("productId") ||
+                !stockColumns.has("quantity") ||
+                !stockColumns.has("locationId")) {
+                return [];
+            }
+            const params = [];
+            const whereParts = [];
+            if (stockColumns.has("companyId")) {
+                params.push(companyId);
+                whereParts.push(`"companyId" = $${params.length}`);
+            }
+            const locationPlaceholders = warehouseLocationIds
+                .map((locationId) => {
+                params.push(locationId);
+                return `$${params.length}`;
+            })
+                .join(", ");
+            whereParts.push(`"locationId" IN (${locationPlaceholders})`);
+            if (stockColumns.has("createdAt")) {
+                params.push(lookbackStart);
+                whereParts.push(`"createdAt" >= $${params.length}`);
+            }
+            const typeExpr = stockColumns.has("type") ? `"type"::text` : "NULL";
+            const reasonExpr = stockColumns.has("reason") ? `"reason"::text` : "NULL";
+            const groupByParts = [`"productId"`];
+            if (stockColumns.has("type"))
+                groupByParts.push(`"type"`);
+            if (stockColumns.has("reason"))
+                groupByParts.push(`"reason"`);
+            try {
+                return await prisma.$queryRawUnsafe(`SELECT "productId",
+                  ${typeExpr} AS "type",
+                  ${reasonExpr} AS "reason",
+                  SUM("quantity") AS "quantity"
+           FROM "StockMovement"
+           WHERE ${whereParts.join(" AND ")}
+           GROUP BY ${groupByParts.join(", ")}`, ...params);
+            }
+            catch (error) {
+                request.log.error({ error }, "production-plan warehouse moves SQL query failed");
+                return [];
+            }
+        };
+        const products = await loadProducts();
+        const warehouseLocationIds = await loadWarehouseLocationIds();
+        const [orderItems, networkBalancesRaw, warehouseBalancesRaw, warehouseMovesRaw] = await Promise.all([
+            loadOrderItems(),
+            loadNetworkBalances(),
+            loadWarehouseBalances(warehouseLocationIds),
+            loadWarehouseMoves(warehouseLocationIds)
+        ]);
+        const productIdSet = new Set(products.map((product) => product.id));
         const networkBalanceMap = new Map();
         networkBalancesRaw.forEach((item) => {
-            networkBalanceMap.set(item.productId, Number(item._sum.quantity ?? 0));
+            if (!productIdSet.has(item.productId))
+                return;
+            networkBalanceMap.set(item.productId, decimalToNumber(item.quantity));
         });
         const warehouseBalanceMap = new Map();
         warehouseBalancesRaw.forEach((item) => {
-            warehouseBalanceMap.set(item.productId, Number(item._sum.quantity ?? 0));
+            if (!productIdSet.has(item.productId))
+                return;
+            warehouseBalanceMap.set(item.productId, decimalToNumber(item.quantity));
         });
         const movementStatsMap = new Map();
         warehouseMovesRaw.forEach((item) => {
+            if (!productIdSet.has(item.productId))
+                return;
             const key = item.productId;
             const current = movementStatsMap.get(key) ?? {
                 production: 0,
@@ -557,20 +1013,42 @@ export async function registerReportRoutes(app) {
                 returns: 0,
                 adjustment: 0
             };
-            const qty = Number(item._sum.quantity ?? 0);
-            if (item.type === "PRODUCTION")
+            const qty = decimalToNumber(item.quantity);
+            const type = String(item.type ?? "").toUpperCase();
+            const reason = String(item.reason ?? "").toUpperCase();
+            if (type === "PRODUCTION")
                 current.production += qty;
-            if (item.type === "DISPATCH")
+            else if (type === "DISPATCH")
                 current.dispatch += Math.abs(qty);
-            if (item.type === "RETURN")
+            else if (type === "RETURN")
                 current.returns += qty;
-            if (item.type === "ADJUSTMENT")
+            else if (type === "ADJUSTMENT")
                 current.adjustment += qty;
+            else if (type === "OUT") {
+                current.dispatch += Math.abs(qty);
+            }
+            else if (type === "IN") {
+                if (reason === "RETURN")
+                    current.returns += qty;
+                else
+                    current.production += qty;
+            }
+            else if (type === "ADJUST" || reason === "MANUAL") {
+                current.adjustment += qty;
+            }
+            else if (reason === "DELIVERY" || reason === "SALE") {
+                current.dispatch += Math.abs(qty);
+            }
+            else if (reason === "RETURN") {
+                current.returns += qty;
+            }
             movementStatsMap.set(key, current);
         });
         const salesMap = new Map();
         for (const item of orderItems) {
             const key = item.productId;
+            if (!productIdSet.has(key))
+                continue;
             const current = salesMap.get(key) ?? {
                 lookback: 0,
                 seven: 0,
@@ -580,9 +1058,10 @@ export async function registerReportRoutes(app) {
                 manual: 0,
                 other: 0
             };
-            const multiplier = Number(item.variant?.multiplier ?? 1);
-            const quantity = Number(item.quantity ?? 0) * multiplier;
-            const createdAt = new Date(item.order.createdAt);
+            const quantity = decimalToNumber(item.quantity);
+            if (!Number.isFinite(quantity) || quantity <= 0)
+                continue;
+            const createdAt = new Date(item.createdAt ?? new Date());
             current.lookback += quantity;
             if (createdAt >= sevenStart)
                 current.seven += quantity;
@@ -590,9 +1069,10 @@ export async function registerReportRoutes(app) {
                 current.prevSeven += quantity;
             if (createdAt >= thirtyStart)
                 current.thirty += quantity;
-            if (item.order.channel === "WOO")
+            const channel = String(item.channel ?? "MANUAL").toUpperCase();
+            if (channel === "WOO")
                 current.woo += quantity;
-            else if (item.order.channel === "MANUAL")
+            else if (channel === "MANUAL")
                 current.manual += quantity;
             else
                 current.other += quantity;

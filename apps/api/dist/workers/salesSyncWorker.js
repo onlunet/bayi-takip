@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Prisma } from "@prisma/client";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 function mapWooStatus(status) {
     if (status === "completed")
         return "COMPLETED";

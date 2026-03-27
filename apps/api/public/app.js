@@ -1,7 +1,9 @@
 const toast = document.getElementById("toast");
 const health = document.getElementById("health");
-const adminApiKeyInput = document.getElementById("adminApiKey");
-const saveAdminApiKeyButton = document.getElementById("saveAdminApiKey");
+const adminLoginEmailInput = document.getElementById("adminLoginEmail");
+const adminLoginPasswordInput = document.getElementById("adminLoginPassword");
+const adminLoginButton = document.getElementById("adminLoginButton");
+const adminLogoutButton = document.getElementById("adminLogoutButton");
 const companySelect = document.getElementById("companySelect");
 const dealerSelect = document.getElementById("dealerSelect");
 const warehouseSelect = document.getElementById("warehouseSelect");
@@ -10,6 +12,9 @@ const stockVariantSelect = document.getElementById("stockVariantSelect");
 const orderItemsContainer = document.getElementById("orderItems");
 const variantProductSelect = document.getElementById("variantProductSelect");
 const overviewSummary = document.getElementById("overviewSummary");
+const onboardingProgress = document.getElementById("onboardingProgress");
+const onboardingChecklist = document.getElementById("onboardingChecklist");
+const overviewQuickActions = document.getElementById("overviewQuickActions");
 const companySettingsForm = document.getElementById("companySettingsForm");
 const deleteCompanyBtn = document.getElementById("deleteCompanyBtn");
 const dealerSettingsForm = document.getElementById("dealerSettingsForm");
@@ -27,6 +32,11 @@ const priceImportOverwrite = document.getElementById("priceImportOverwrite");
 const priceCatalogSummary = document.getElementById("priceCatalogSummary");
 const copyPriceListLinesButton = document.getElementById("copyPriceListLines");
 const exportPriceListPdfButton = document.getElementById("exportPriceListPdf");
+const exportDealerPricesCsvButton = document.getElementById("exportDealerPricesCsv");
+const exportDealerPricesXlsxButton = document.getElementById("exportDealerPricesXlsx");
+const dealerPriceImportFile = document.getElementById("dealerPriceImportFile");
+const importDealerPricesButton = document.getElementById("importDealerPricesButton");
+const dealerPriceImportResult = document.getElementById("dealerPriceImportResult");
 const dealerPriceListForm = document.getElementById("dealerPriceListForm");
 const userForm = document.getElementById("userForm");
 const wooSiteForm = document.getElementById("wooSiteForm");
@@ -63,12 +73,24 @@ const unmappedSummaryFrom = document.getElementById("unmappedSummaryFrom");
 const unmappedSummaryTo = document.getElementById("unmappedSummaryTo");
 const refreshUnmappedSummaryButton = document.getElementById("refreshUnmappedSummary");
 const unmappedSummaryStats = document.getElementById("unmappedSummaryStats");
+const argeFrom = document.getElementById("argeFrom");
+const argeTo = document.getElementById("argeTo");
+const refreshArgeButton = document.getElementById("refreshArgeButton");
+const argeSummary = document.getElementById("argeSummary");
 const productCategorySelect = document.getElementById("productCategorySelect");
 const productForm = document.getElementById("productForm");
 const productEditIdInput = document.getElementById("productEditId");
 const productFormMode = document.getElementById("productFormMode");
 const productFormSubmit = document.getElementById("productFormSubmit");
 const productFormCancel = document.getElementById("productFormCancel");
+const productBulkImportForm = document.getElementById("productBulkImportForm");
+const productBulkFileInput = document.getElementById("productBulkFile");
+const productBulkUpdateExisting = document.getElementById("productBulkUpdateExisting");
+const productBulkCreateCategories = document.getElementById("productBulkCreateCategories");
+const productBulkDefaultUnit = document.getElementById("productBulkDefaultUnit");
+const productBulkImportResult = document.getElementById("productBulkImportResult");
+const downloadProductTemplateCsvButton = document.getElementById("downloadProductTemplateCsv");
+const downloadProductTemplateXlsxButton = document.getElementById("downloadProductTemplateXlsx");
 const categoryForm = document.getElementById("categoryForm");
 const productImageForm = document.getElementById("productImageForm");
 const imageProductSelect = document.getElementById("imageProductSelect");
@@ -106,6 +128,17 @@ const attributeIndustryProfileSelect = document.getElementById("attributeIndustr
 const pricingIndustryProfileSelect = document.getElementById("pricingIndustryProfileSelect");
 const workflowIndustryProfileSelect = document.getElementById("workflowIndustryProfileSelect");
 const presetIndustryProfileSelect = document.getElementById("presetIndustryProfileSelect");
+const adminMenuToggle = document.getElementById("adminMenuToggle");
+const adminSidebar = document.getElementById("adminSidebar");
+const adminMenuBackdrop = document.getElementById("adminMenuBackdrop");
+const testRoleBar = document.getElementById("testRoleBar");
+const testRoleInfo = document.getElementById("testRoleInfo");
+const testRoleReset = document.getElementById("testRoleReset");
+const openDealerPortalQuick = document.getElementById("openDealerPortalQuick");
+
+const MOBILE_DRAWER_BREAKPOINT = 900;
+const ENABLE_TEST_ROLE_SWITCHER = true;
+const ROLE_OVERRIDE_STORAGE_KEY = "bayi_portal_role_override";
 
 let companies = [];
 let dealers = [];
@@ -137,12 +170,14 @@ let workflowTemplates = [];
 let reportPresets = [];
 let selectedIndustryProfileId = null;
 let mappingSuggestionsByExternalKey = new Map();
+let isAdminMenuOpen = false;
 let authContext = {
   role: "OWNER",
   companyId: null,
   dealerId: null,
   authRequired: false
 };
+let roleOverride = null;
 let activeMenuContext = {
   target: "overview",
   label: "Dashboard"
@@ -154,6 +189,20 @@ const PLATFORM_LABELS = {
   MARKETPLACE: "Pazaryeri",
   OTHER: "Diger"
 };
+
+const ORDER_STATUS_OPTIONS = [
+  "DRAFT",
+  "NEW",
+  "APPROVED",
+  "PROCESSING",
+  "PREPARING",
+  "SHIPPED",
+  "DELIVERED",
+  "COMPLETED",
+  "RETURNED",
+  "EXCHANGED",
+  "CANCELLED"
+];
 
 const ROLE_ALLOWED_TARGETS = {
   OWNER: null,
@@ -169,12 +218,14 @@ const ROLE_ALLOWED_TARGETS = {
     "dispatch",
     "orders",
     "production",
+    "arge",
     "reports",
     "woo",
     "mapping",
     "integrations",
     "unmapped",
     "unmapped-summary",
+    "arge",
     "prices"
   ]),
   ACCOUNTING: new Set([
@@ -190,8 +241,15 @@ const ROLE_ALLOWED_TARGETS = {
     "integrations",
     "unmapped",
     "unmapped-summary",
+    "arge",
     "system",
     "industry"
+  ]),
+  DEALER: new Set([
+    "overview",
+    "orders",
+    "reports",
+    "ledger"
   ])
 };
 
@@ -240,31 +298,104 @@ const ROLE_DISABLED_FORM_IDS = {
     "pricingRuleForm",
     "workflowTemplateForm",
     "reportPresetForm"
+  ],
+  DEALER: [
+    "companyForm",
+    "companySettingsForm",
+    "dealerForm",
+    "dealerSettingsForm",
+    "warehouseForm",
+    "categoryForm",
+    "productForm",
+    "variantForm",
+    "productImageForm",
+    "stockForm",
+    "dispatchForm",
+    "productionBatchForm",
+    "priceListForm",
+    "priceForm",
+    "dealerPriceListForm",
+    "wooSiteForm",
+    "genericIntegrationForm",
+    "mappingForm",
+    "unmappedCreateForm",
+    "userForm",
+    "industryProfileForm",
+    "attributeDefinitionForm",
+    "pricingRuleForm",
+    "workflowTemplateForm",
+    "reportPresetForm"
   ]
 };
 
-const ADMIN_API_KEY_STORAGE_KEY = "bayi_portal_admin_api_key";
+const ADMIN_AUTH_TOKEN_STORAGE_KEY = "bayi_portal_admin_auth_token";
 
-function getAdminApiKey() {
+function normalizeRole(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isKnownRole(role) {
+  if (!role) return false;
+  return Object.prototype.hasOwnProperty.call(ROLE_ALLOWED_TARGETS, role);
+}
+
+function getAdminAuthToken() {
   try {
-    return (localStorage.getItem(ADMIN_API_KEY_STORAGE_KEY) || "").trim();
+    return (localStorage.getItem(ADMIN_AUTH_TOKEN_STORAGE_KEY) || "").trim();
   } catch {
     return "";
   }
 }
 
-function setAdminApiKey(value) {
+function setAdminAuthToken(value) {
   const normalized = (value || "").trim();
   try {
     if (normalized) {
-      localStorage.setItem(ADMIN_API_KEY_STORAGE_KEY, normalized);
+      localStorage.setItem(ADMIN_AUTH_TOKEN_STORAGE_KEY, normalized);
     } else {
-      localStorage.removeItem(ADMIN_API_KEY_STORAGE_KEY);
+      localStorage.removeItem(ADMIN_AUTH_TOKEN_STORAGE_KEY);
     }
   } catch {
     // localStorage erisimi yoksa sessizce gec.
   }
 }
+
+function persistRoleOverride() {
+  try {
+    if (roleOverride) {
+      localStorage.setItem(ROLE_OVERRIDE_STORAGE_KEY, roleOverride);
+    } else {
+      localStorage.removeItem(ROLE_OVERRIDE_STORAGE_KEY);
+    }
+  } catch {
+    // localStorage erisimi yoksa sessizce gec.
+  }
+}
+
+function loadRoleOverrideFromStorage() {
+  if (!ENABLE_TEST_ROLE_SWITCHER) {
+    roleOverride = null;
+    return;
+  }
+  try {
+    const storedRole = normalizeRole(localStorage.getItem(ROLE_OVERRIDE_STORAGE_KEY));
+    roleOverride = isKnownRole(storedRole) ? storedRole : null;
+  } catch {
+    roleOverride = null;
+  }
+}
+
+function setRoleOverride(role) {
+  const normalizedRole = normalizeRole(role);
+  roleOverride = isKnownRole(normalizedRole) ? normalizedRole : null;
+  persistRoleOverride();
+}
+
+function clearRoleOverride() {
+  roleOverride = null;
+  persistRoleOverride();
+}
+
 function showToast(message, type = "info") {
   toast.textContent = message;
   toast.className = `toast show ${type}`;
@@ -272,13 +403,17 @@ function showToast(message, type = "info") {
 }
 
 async function api(path, options = {}) {
-  const key = getAdminApiKey();
+  const token = getAdminAuthToken();
   const headers = {
     ...(options.headers || {}),
-    ...(key ? { "x-api-key": key, "x-admin-key": key } : {})
+    ...(token ? { "x-admin-token": token } : {})
   };
 
   const response = await fetch(path, { ...options, headers });
+  if ((response.status === 401 || response.status === 403) && token) {
+    setAdminAuthToken("");
+    refreshAuthContext().catch(() => {});
+  }
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || "Bir hata olustu");
@@ -286,8 +421,237 @@ async function api(path, options = {}) {
   return response.json();
 }
 
+async function apiRaw(path, options = {}) {
+  const token = getAdminAuthToken();
+  const headers = {
+    ...(options.headers || {}),
+    ...(token ? { "x-admin-token": token } : {})
+  };
+  return fetch(path, { ...options, headers });
+}
+
+function parseFileNameFromDisposition(disposition, fallbackName) {
+  if (!disposition) return fallbackName;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].trim());
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+  const basicMatch = disposition.match(/filename="?([^";]+)"?/i);
+  if (basicMatch?.[1]) return basicMatch[1].trim();
+  return fallbackName;
+}
+
+async function downloadAuthFile(path, fallbackName) {
+  const response = await apiRaw(path);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Dosya indirilemedi");
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("content-disposition");
+  const fileName = parseFileNameFromDisposition(disposition, fallbackName);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      if (!base64) {
+        reject(new Error("Dosya okunamadi"));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Dosya okunurken hata olustu"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isMobileDrawerViewport() {
+  return window.matchMedia(`(max-width: ${MOBILE_DRAWER_BREAKPOINT}px)`).matches;
+}
+
+function moveFocusOutOfAdminSidebar() {
+  if (!adminSidebar) return;
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) return;
+  if (!adminSidebar.contains(active)) return;
+
+  if (adminMenuToggle instanceof HTMLElement) {
+    adminMenuToggle.focus({ preventScroll: true });
+  } else {
+    active.blur();
+  }
+}
+
+function syncAdminMenuState() {
+  if (adminMenuToggle) {
+    adminMenuToggle.setAttribute("aria-expanded", String(isAdminMenuOpen));
+  }
+  if (adminSidebar) {
+    const hideFromA11y = !isAdminMenuOpen && isMobileDrawerViewport();
+    adminSidebar.setAttribute("aria-hidden", String(hideFromA11y));
+    if (hideFromA11y) {
+      adminSidebar.setAttribute("inert", "");
+    } else {
+      adminSidebar.removeAttribute("inert");
+    }
+  }
+  if (adminMenuBackdrop) {
+    adminMenuBackdrop.setAttribute("aria-hidden", String(!isAdminMenuOpen));
+  }
+}
+
+function closeAdminMobileMenu() {
+  if (!isAdminMenuOpen) {
+    syncAdminMenuState();
+    return;
+  }
+  moveFocusOutOfAdminSidebar();
+  isAdminMenuOpen = false;
+  document.body.classList.remove("menu-open");
+  syncAdminMenuState();
+}
+
+function openAdminMobileMenu() {
+  if (!isMobileDrawerViewport()) {
+    syncAdminMenuState();
+    return;
+  }
+  isAdminMenuOpen = true;
+  document.body.classList.add("menu-open");
+  syncAdminMenuState();
+}
+
+function toggleAdminMobileMenu() {
+  if (isAdminMenuOpen) {
+    closeAdminMobileMenu();
+    return;
+  }
+  openAdminMobileMenu();
+}
+
+function initAdminMobileMenu() {
+  syncAdminMenuState();
+
+  adminMenuToggle?.addEventListener("click", () => {
+    toggleAdminMobileMenu();
+  });
+
+  adminMenuBackdrop?.addEventListener("click", () => {
+    closeAdminMobileMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAdminMobileMenu();
+    }
+  });
+
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!isAdminMenuOpen || !isMobileDrawerViewport()) return;
+      if (adminSidebar && event.target instanceof Node && adminSidebar.contains(event.target)) return;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+
+  window.addEventListener("resize", () => {
+    if (!isMobileDrawerViewport()) {
+      closeAdminMobileMenu();
+    } else {
+      syncAdminMenuState();
+    }
+  });
+}
+
+function updateTestRoleToolbar() {
+  if (!testRoleBar) return;
+
+  if (!ENABLE_TEST_ROLE_SWITCHER) {
+    testRoleBar.classList.add("hidden");
+    if (testRoleInfo) {
+      testRoleInfo.textContent = "Test modu devre disi.";
+    }
+    return;
+  }
+
+  testRoleBar.classList.remove("hidden");
+  const realRole = normalizeRole(authContext?.role) || "OWNER";
+  const effectiveRole = getCurrentRole();
+  const hasOverride = Boolean(roleOverride);
+
+  testRoleBar.querySelectorAll(".test-role-btn").forEach((button) => {
+    const role = normalizeRole(button.dataset.role);
+    const isActive = role === effectiveRole;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  if (testRoleReset) {
+    testRoleReset.disabled = !hasOverride;
+  }
+
+  if (testRoleInfo) {
+    testRoleInfo.textContent = hasOverride
+      ? `Test modu aktif. Gercek rol: ${realRole} | Simule rol: ${effectiveRole}`
+      : `Test modu pasif. Gercek rol: ${realRole}`;
+  }
+}
+
+function initTestRoleToolbar() {
+  if (!testRoleBar) return;
+
+  if (!ENABLE_TEST_ROLE_SWITCHER) {
+    clearRoleOverride();
+    updateTestRoleToolbar();
+    return;
+  }
+
+  loadRoleOverrideFromStorage();
+
+  testRoleBar.querySelectorAll(".test-role-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextRole = normalizeRole(button.dataset.role);
+      if (!isKnownRole(nextRole)) return;
+      setRoleOverride(nextRole);
+      applyRoleVisibility();
+      showToast(`Test rolu aktif: ${nextRole}`);
+    });
+  });
+
+  testRoleReset?.addEventListener("click", () => {
+    clearRoleOverride();
+    applyRoleVisibility();
+    showToast("Gercek role donuldu.");
+  });
+
+  openDealerPortalQuick?.addEventListener("click", () => {
+    window.open("/dealer.html", "_blank", "noopener,noreferrer");
+  });
+
+  updateTestRoleToolbar();
+}
+
 function getCurrentRole() {
-  return String(authContext?.role || "OWNER").toUpperCase();
+  return normalizeRole(roleOverride) || normalizeRole(authContext?.role) || "OWNER";
 }
 
 function canOverrideRiskLimit() {
@@ -297,9 +661,10 @@ function canOverrideRiskLimit() {
 
 async function refreshAuthContext() {
   try {
-    const result = await api("/auth/me");
+    const result = await api("/admin/auth/me");
+    const fallbackRole = result?.authRequired ? "DEALER" : "OWNER";
     authContext = {
-      role: String(result?.user?.role ?? "OWNER").toUpperCase(),
+      role: String(result?.user?.role ?? fallbackRole).toUpperCase(),
       companyId: result?.user?.companyId ?? null,
       dealerId: result?.user?.dealerId ?? null,
       authRequired: Boolean(result?.authRequired)
@@ -312,6 +677,42 @@ async function refreshAuthContext() {
       authRequired: false
     };
   }
+}
+
+async function loginAdmin() {
+  const email = String(adminLoginEmailInput?.value ?? "").trim();
+  const password = String(adminLoginPasswordInput?.value ?? "");
+  if (!email || !password) {
+    throw new Error("E-posta ve sifre gerekli");
+  }
+
+  const response = await fetch("/admin/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Giris basarisiz");
+  }
+
+  const result = await response.json();
+  setAdminAuthToken(result?.token || "");
+  if (adminLoginPasswordInput) {
+    adminLoginPasswordInput.value = "";
+  }
+}
+
+function logoutAdmin() {
+  setAdminAuthToken("");
+  authContext = {
+    role: "OWNER",
+    companyId: null,
+    dealerId: null,
+    authRequired: true
+  };
+  applyRoleVisibility();
 }
 
 function setFormDisabledById(formId, disabled) {
@@ -390,7 +791,8 @@ function applyRoleButtonRestrictions() {
 
   const allowedButtonIds = new Set([
     "refreshAll",
-    "saveAdminApiKey",
+    "adminLoginButton",
+    "adminLogoutButton",
     "applyReportFilters",
     "refreshUnmappedSummary",
     "exportSalesCsv",
@@ -411,10 +813,13 @@ function applyRoleButtonRestrictions() {
 
 function updateRoleBadge() {
   const role = getCurrentRole();
+  const realRole = normalizeRole(authContext?.role) || "OWNER";
   const baseText = health?.textContent || "API";
   const cleanText = baseText.split("|")[0].trim();
   if (health) {
-    health.textContent = `${cleanText} | Rol: ${role}`;
+    const roleText = roleOverride ? `${role} (test)` : role;
+    const realRoleText = roleOverride ? ` | Gercek: ${realRole}` : "";
+    health.textContent = `${cleanText} | Rol: ${roleText}${realRoleText}`;
   }
 }
 
@@ -423,6 +828,7 @@ function applyRoleVisibility() {
   applyRoleFormRestrictions();
   applyRoleButtonRestrictions();
   updateRoleBadge();
+  updateTestRoleToolbar();
 }
 
 function parseErrorMessage(error, fallbackMessage) {
@@ -1150,8 +1556,11 @@ function renderTable(tableId, headers, rows) {
   const headerRow = document.createElement("tr");
   headers.forEach((header, index) => {
     const th = document.createElement("th");
-    th.textContent = header;
+    const isActiveSort = state.columnIndex === index;
+    const sortDirection = isActiveSort ? (state.asc ? " asc" : " desc") : "";
+    th.textContent = `${header}${sortDirection}`;
     th.style.cursor = "pointer";
+    th.setAttribute("aria-sort", isActiveSort ? (state.asc ? "ascending" : "descending") : "none");
     th.addEventListener("click", () => {
       if (state.columnIndex === index) {
         state.asc = !state.asc;
@@ -1169,16 +1578,21 @@ function renderTable(tableId, headers, rows) {
   const tbody = document.createElement("tbody");
   sortedRows.forEach((row) => {
     const tr = document.createElement("tr");
-    row.forEach((cell) => {
+    row.forEach((cell, cellIndex) => {
       const td = document.createElement("td");
+      const headerLabel = headers[cellIndex] || "Islem";
+      td.setAttribute("data-label", headerLabel || "Islem");
       if (Array.isArray(cell)) {
+        const actions = document.createElement("div");
+        actions.className = "table-actions";
         cell.forEach((action) => {
           const button = document.createElement("button");
           button.textContent = action.label ?? "Islem";
           button.className = action.className ?? "btn ghost";
           button.addEventListener("click", action.onClick);
-          td.appendChild(button);
+          actions.appendChild(button);
         });
+        td.appendChild(actions);
       } else if (cell && typeof cell === "object") {
         if (cell.type === "image") {
           if (cell.src) {
@@ -1191,14 +1605,17 @@ function renderTable(tableId, headers, rows) {
             td.textContent = "-";
           }
         } else {
+          const actions = document.createElement("div");
+          actions.className = "table-actions";
           const button = document.createElement("button");
           button.textContent = cell.label ?? "Islem";
           button.className = cell.className ?? "btn ghost";
           button.addEventListener("click", cell.onClick);
-          td.appendChild(button);
+          actions.appendChild(button);
+          td.appendChild(actions);
         }
       } else {
-        td.textContent = cell;
+        td.textContent = cell ?? "-";
       }
       tr.appendChild(td);
     });
@@ -1496,7 +1913,6 @@ async function refreshDealerSettings() {
   const settings = await api(`/dealers/${dealerId}/settings`);
   dealerSettingsForm.marginPercent.value = settings?.marginPercent ?? "";
   dealerSettingsForm.roundingType.value = settings?.roundingType ?? "NONE";
-  dealerSettingsForm.apiKey.value = settings?.apiKey ?? "";
 }
 
 async function refreshWarehouses() {
@@ -1805,20 +2221,60 @@ async function refreshOrders() {
           })
           .join(", ");
 
+        const customer = [order.customerName, order.customerPhone]
+          .filter((part) => part && String(part).trim().length)
+          .join(" / ");
+
         return [
           new Date(order.createdAt).toLocaleString(),
           dealer?.name ?? "-",
           String(order.channel || "-"),
           order.status,
+          customer || "-",
           items || "-",
-          Number(order.totalPrice).toFixed(2)
+          order.customerNote || "-",
+          Number(order.totalPrice).toFixed(2),
+          [
+            {
+              label: "Durum",
+              className: "btn ghost",
+              onClick: async () => {
+                const next = promptRequired(
+                  `Yeni durum (${ORDER_STATUS_OPTIONS.join(", ")})`,
+                  String(order.status || "NEW")
+                );
+                if (next === null) return;
+                const nextStatus = next.toUpperCase().trim();
+                if (!ORDER_STATUS_OPTIONS.includes(nextStatus)) {
+                  showToast("Gecersiz siparis durumu.", "error");
+                  return;
+                }
+
+                const note = promptOptional("Durum notu (opsiyonel)", "");
+                await api(`/orders/${order.id}/status`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    status: nextStatus,
+                    note: note || undefined
+                  })
+                });
+                showToast("Siparis durumu guncellendi.");
+                await refreshOrders();
+                await refreshStockSummary();
+                await refreshStockMovements();
+                await refreshWarehouseReport();
+              },
+              sortValue: ""
+            }
+          ]
         ];
       })
-    : [["-", "-", "-", "-", "Kayit bulunamadi", "0.00"]];
+    : [["-", "-", "-", "-", "-", "Kayit bulunamadi", "-", "0.00", "-"]];
 
   renderTable(
     "ordersTable",
-    ["Tarih", "Bayi", "Kanal", "Durum", "Kalemler", "Toplam"],
+    ["Tarih", "Bayi", "Kanal", "Durum", "Musteri", "Kalemler", "Siparis Notu", "Toplam", "Islem"],
     rows
   );
 }
@@ -2336,6 +2792,61 @@ async function refreshUnmappedSummary() {
   );
 }
 
+async function refreshArge() {
+  const companyId = getSelectedCompanyId();
+  if (!companyId) {
+    renderTable("argeDemandTable", ["Urun", "Birim", "Toplam Miktar", "Siparis", "Pay", "Son Gorulme", "Islem"], [["Firma secin", "-", "0.00", "0", "0.00%", "-", "-"]]);
+    if (argeSummary) {
+      argeSummary.textContent = "Ar-Ge verisi icin once firma secin.";
+    }
+    return;
+  }
+
+  const from = argeFrom?.value || undefined;
+  const to = argeTo?.value || undefined;
+  const result = await api(`/reports/unmapped-product-summary${buildQuery({ companyId, from, to })}`);
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  const demandRows = rows.filter((row) => String(row.productionOpportunity || "").toUpperCase() === "URETIME DEGER");
+
+  const totalQuantity = demandRows.reduce((sum, row) => sum + Number(row.totalQuantity ?? 0), 0);
+  const totalAmount = demandRows.reduce((sum, row) => sum + Number(row.totalAmount ?? 0), 0);
+  const totalOrders = demandRows.reduce((sum, row) => sum + Number(row.totalOrders ?? 0), 0);
+
+  if (argeSummary) {
+    argeSummary.textContent =
+      `Uretime Deger Urun: ${demandRows.length} | Toplam Miktar: ${totalQuantity.toFixed(2)} | ` +
+      `Toplam Siparis: ${totalOrders} | Toplam Tutar: ${totalAmount.toFixed(2)}`;
+  }
+
+  renderTable(
+    "argeDemandTable",
+    ["Harici ID", "Urun", "Birim", "Toplam Miktar", "Siparis", "Pay", "Son Gorulme", "Islem"],
+    demandRows.length
+      ? demandRows.map((row) => [
+          row.externalProductId ?? "-",
+          row.name ?? "-",
+          row.unit ?? "-",
+          Number(row.totalQuantity ?? 0).toFixed(2),
+          Number(row.totalOrders ?? 0),
+          `${Number(row.sharePercent ?? 0).toFixed(2)}%`,
+          row.lastSeenAt ? new Date(row.lastSeenAt).toLocaleDateString() : "-",
+          {
+            label: "Eslestirmeye Git",
+            className: "btn ghost",
+            onClick: async () => {
+              if (integrationSearch) {
+                integrationSearch.value = String(row.externalProductId ?? "");
+              }
+              await refreshIntegrationLogs();
+              setSection("unmapped", "Eslesmeyen Urunler");
+            },
+            sortValue: ""
+          }
+        ])
+      : [["-", "Uretime deger urun bulunamadi", "-", "0.00", "0", "0.00%", "-", "-"]]
+  );
+}
+
 async function refreshWooIntegrations() {
   const dealerId = getSelectedDealerId();
   const headers = ["Platform", "Base URL", "Aktif", "Son Sync", "Islem"];
@@ -2365,7 +2876,14 @@ async function refreshWooIntegrations() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
               });
-              showToast("Sync tamamlandi. Aktarilan: " + result.imported + " | Atlanan: " + result.skipped);
+              showToast(
+                "Sync tamamlandi. Aktarilan: " +
+                  Number(result.imported ?? 0) +
+                  " | Atlanan: " +
+                  Number(result.skipped ?? 0) +
+                  " | Is: " +
+                  (result.jobId ?? "-")
+              );
               await refreshWooIntegrations();
               await refreshIntegrationLogs();
               await refreshOrders();
@@ -2385,7 +2903,43 @@ async function refreshWooIntegrations() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
               });
-              showToast("Gecmis sync bitti. Aktarilan: " + result.imported + " | Atlanan: " + result.skipped);
+              showToast(
+                "Gecmis sync bitti. Aktarilan: " +
+                  Number(result.imported ?? 0) +
+                  " | Atlanan: " +
+                  Number(result.skipped ?? 0) +
+                  " | Is: " +
+                  (result.jobId ?? "-")
+              );
+              await refreshWooIntegrations();
+              await refreshIntegrationLogs();
+              await refreshOrders();
+              await refreshStockSummary();
+            },
+            sortValue: ""
+          },
+          {
+            label: "Replay",
+            className: "btn ghost",
+            onClick: async () => {
+              const jobs = await api(`/integrations/jobs${buildQuery({ integrationId: integration.id })}`);
+              const lastJob = Array.isArray(jobs) ? jobs[0] : null;
+              if (!lastJob?.id) {
+                showToast("Replay icin gecmis sync isi bulunamadi.", "error");
+                return;
+              }
+
+              const result = await api(`/integrations/jobs/${lastJob.id}/replay`, {
+                method: "POST"
+              });
+              showToast(
+                "Replay tamamlandi. Aktarilan: " +
+                  Number(result.imported ?? 0) +
+                  " | Atlanan: " +
+                  Number(result.skipped ?? 0) +
+                  " | Is: " +
+                  (result.jobId ?? "-")
+              );
               await refreshWooIntegrations();
               await refreshIntegrationLogs();
               await refreshOrders();
@@ -2582,46 +3136,69 @@ async function refreshUsers() {
 
   renderTable(
     "userTable",
-    ["Ad", "E-posta", "Rol", "Durum", "API Key", "Islem"],
+    ["Ad", "E-posta", "Rol", "Durum", "Giris", "Islem"],
     users.map((user) => [
       user.name,
       user.email,
       user.role,
       user.active ? "Aktif" : "Pasif",
-      user.apiKey,
-      {
-        label: "Duzenle",
-        className: "btn ghost",
-        onClick: async () => {
-          const name = promptRequired("Kullanici adi", user.name);
-          if (name === null) return;
+      user.role === "DEALER" ? "E-posta / Sifre" : "Yonetim oturumu",
+      [
+        {
+          label: "Duzenle",
+          className: "btn ghost",
+          onClick: async () => {
+            const name = promptRequired("Kullanici adi", user.name);
+            if (name === null) return;
 
-          const roleInput = promptRequired(
-            "Rol (OWNER, ADMIN, WAREHOUSE, ACCOUNTING, DEALER)",
-            user.role
-          );
-          if (roleInput === null) return;
+            const roleInput = promptRequired(
+              "Rol (OWNER, ADMIN, WAREHOUSE, ACCOUNTING, DEALER)",
+              user.role
+            );
+            if (roleInput === null) return;
 
-          const role = roleInput.toUpperCase();
-          if (!roleList.includes(role)) {
-            showToast("Gecersiz rol girdiniz.", "error");
-            return;
-          }
+            const role = roleInput.toUpperCase();
+            if (!roleList.includes(role)) {
+              showToast("Gecersiz rol girdiniz.", "error");
+              return;
+            }
 
-          const active = promptYesNo("Kullanici aktif mi? (E/H)", user.active);
-          if (active === null) return;
+            const active = promptYesNo("Kullanici aktif mi? (E/H)", user.active);
+            if (active === null) return;
 
-          await api(`/users/${user.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, role, active })
-          });
+            await api(`/users/${user.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, role, active })
+            });
 
-          showToast("Kullanici guncellendi.");
-          await refreshUsers();
+            showToast("Kullanici guncellendi.");
+            await refreshUsers();
+          },
+          sortValue: ""
         },
-        sortValue: ""
-      }
+        {
+          label: "Sifre Guncelle",
+          className: "btn ghost",
+          onClick: async () => {
+            const password = promptRequired("Yeni sifre (en az 6 karakter)", "");
+            if (password === null) return;
+            const normalized = String(password).trim();
+            if (normalized.length < 6) {
+              showToast("Sifre en az 6 karakter olmali.", "error");
+              return;
+            }
+
+            await api(`/users/${user.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ password: normalized })
+            });
+
+            showToast("Kullanici sifresi guncellendi.");
+          }
+        }
+      ]
     ])
   );
   applyRoleVisibility();
@@ -2755,6 +3332,78 @@ function updateOverview() {
   overviewSummary.textContent =
     `Urun: ${products.length} | Varyasyon: ${variants.length} | Kalan stok: ${totalStock.toFixed(2)} | ` +
     `Siparis: ${orders.length}`;
+}
+
+function renderOverviewQuickActions(actions = []) {
+  if (!overviewQuickActions) return;
+  overviewQuickActions.innerHTML = "";
+
+  if (!actions.length) {
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.textContent = "Bu rol icin hizli aksiyon bulunamadi.";
+    overviewQuickActions.appendChild(hint);
+    return;
+  }
+
+  actions.forEach((action) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn ghost";
+    button.textContent = action.label ?? "Aksiyon";
+    button.title = action.hint ?? "";
+    button.addEventListener("click", () => {
+      const target = action.target || "overview";
+      setSection(target, action.label ?? "", null);
+    });
+    overviewQuickActions.appendChild(button);
+  });
+}
+
+async function refreshOnboardingPanel() {
+  const companyId = getSelectedCompanyId();
+  if (!companyId) {
+    if (onboardingProgress) onboardingProgress.textContent = "Firma secimi bekleniyor.";
+    if (onboardingChecklist) onboardingChecklist.innerHTML = "<li>Firma secimi yapin.</li>";
+    renderOverviewQuickActions([]);
+    return;
+  }
+
+  try {
+    const payload = await api(`/dashboard/onboarding${buildQuery({ companyId })}`);
+    if (onboardingProgress) {
+      onboardingProgress.textContent =
+        `%${payload.completionPercent} tamamlandi (${payload.completedSteps}/${payload.totalSteps})`;
+    }
+
+    if (onboardingChecklist) {
+      onboardingChecklist.innerHTML = "";
+      (payload.steps || []).forEach((step) => {
+        const li = document.createElement("li");
+        const state = step.done ? "Tamam" : "Bekliyor";
+        const countText = typeof step.count === "number" ? ` (${step.count})` : "";
+        li.textContent = `${step.title}: ${state}${countText}`;
+
+        if (!step.done && step.target) {
+          const actionButton = document.createElement("button");
+          actionButton.type = "button";
+          actionButton.className = "btn ghost";
+          actionButton.textContent = "Ac";
+          actionButton.style.marginLeft = "8px";
+          actionButton.addEventListener("click", () => {
+            setSection(step.target, step.title ?? "", null);
+          });
+          li.appendChild(actionButton);
+        }
+
+        onboardingChecklist.appendChild(li);
+      });
+    }
+
+    renderOverviewQuickActions(payload.quickActions || []);
+  } catch {
+    if (onboardingProgress) onboardingProgress.textContent = "Kurulum verileri yuklenemedi.";
+  }
 }
 
 function renderOrderItems() {
@@ -4444,6 +5093,7 @@ async function refreshAll() {
   await refreshWooProductSalesSummary();
   await refreshIntegrationLogs();
   await refreshUnmappedSummary();
+  await refreshArge();
   await refreshWooIntegrations();
   await refreshGenericIntegrations();
   await refreshMappings();
@@ -4456,19 +5106,33 @@ async function refreshAll() {
   setDispatchFormCreateMode();
   resetDispatchFormItems();
   updateOverview();
+  await refreshOnboardingPanel();
   applyRoleVisibility();
 }
 async function setup() {
-  if (adminApiKeyInput) {
-    adminApiKeyInput.value = getAdminApiKey();
-  }
+  adminLoginButton?.addEventListener("click", async () => {
+    try {
+      await loginAdmin();
+      await refreshAuthContext();
+      applyRoleVisibility();
+      await refreshAll();
+      showToast("Yonetim girisi basarili.");
+    } catch (error) {
+      showToast(parseErrorMessage(error, "Giris basarisiz."), "error");
+    }
+  });
 
-  saveAdminApiKeyButton?.addEventListener("click", async () => {
-    const value = adminApiKeyInput?.value ?? "";
-    setAdminApiKey(value);
-    showToast(value.trim() ? "Yonetim API key kaydedildi." : "Yonetim API key temizlendi.");
-    await refreshAuthContext();
-    applyRoleVisibility();
+  adminLogoutButton?.addEventListener("click", () => {
+    logoutAdmin();
+    showToast("Yonetim oturumu kapatildi.");
+  });
+
+  [adminLoginEmailInput, adminLoginPasswordInput].forEach((input) => {
+    input?.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      adminLoginButton?.click();
+    });
   });
   try {
     await api("/health");
@@ -4479,9 +5143,11 @@ async function setup() {
   }
 
   await refreshAuthContext();
+  initTestRoleToolbar();
   applyRoleVisibility();
 
   organizeMenuSections();
+  initAdminMobileMenu();
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -4521,6 +5187,7 @@ async function setup() {
     await refreshWooProductSalesSummary();
     await refreshIntegrationLogs();
     await refreshUnmappedSummary();
+    await refreshArge();
     await refreshWooIntegrations();
     await refreshGenericIntegrations();
     await refreshMappings();
@@ -4533,6 +5200,7 @@ async function setup() {
     setDispatchFormCreateMode();
     resetDispatchFormItems();
     updateOverview();
+    await refreshOnboardingPanel();
     applyRoleVisibility();
   });
 
@@ -4569,6 +5237,9 @@ async function setup() {
   refreshUnmappedSummaryButton?.addEventListener("click", refreshUnmappedSummary);
   unmappedSummaryFrom?.addEventListener("change", refreshUnmappedSummary);
   unmappedSummaryTo?.addEventListener("change", refreshUnmappedSummary);
+  refreshArgeButton?.addEventListener("click", refreshArge);
+  argeFrom?.addEventListener("change", refreshArge);
+  argeTo?.addEventListener("change", refreshArge);
 
   getIndustryProfileSelectors().forEach((select) => {
     select.addEventListener("change", async () => {
@@ -5317,6 +5988,80 @@ async function setup() {
     showToast("Urun duzenleme iptal edildi.");
   });
 
+  downloadProductTemplateCsvButton?.addEventListener("click", async () => {
+    try {
+      await downloadAuthFile("/products/import-template?format=csv", "urun-toplu-sablon.csv");
+      showToast("CSV sablon indirildi.");
+    } catch (error) {
+      showToast(parseErrorMessage(error, "CSV sablon indirilemedi."), "error");
+    }
+  });
+
+  downloadProductTemplateXlsxButton?.addEventListener("click", async () => {
+    try {
+      await downloadAuthFile("/products/import-template?format=xlsx", "urun-toplu-sablon.xlsx");
+      showToast("XLSX sablon indirildi.");
+    } catch (error) {
+      showToast(parseErrorMessage(error, "XLSX sablon indirilemedi."), "error");
+    }
+  });
+
+  productBulkImportForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const companyId = getSelectedCompanyId();
+    if (!companyId) {
+      showToast("Lutfen once firma secin.", "error");
+      return;
+    }
+
+    const file = productBulkFileInput?.files?.[0];
+    if (!file) {
+      showToast("Lutfen bir dosya secin.", "error");
+      return;
+    }
+
+    try {
+      const contentBase64 = await fileToBase64(file);
+      const result = await api("/products/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId,
+          fileName: file.name,
+          contentBase64,
+          updateExisting: Boolean(productBulkUpdateExisting?.checked),
+          createCategories: Boolean(productBulkCreateCategories?.checked),
+          defaultUnit: productBulkDefaultUnit?.value || "PIECE"
+        })
+      });
+
+      const errorPreview =
+        Array.isArray(result.errors) && result.errors.length
+          ? ` | Hata: ${result.errors
+              .slice(0, 3)
+              .map((item) => `Satir ${item.row}: ${item.message}`)
+              .join(" / ")}`
+          : "";
+
+      const message =
+        `Toplam: ${result.totalRows} | Yeni: ${result.created} | Guncel: ${result.updated} | ` +
+        `Atlanan: ${result.skipped} | Hata: ${result.errors?.length ?? 0}${errorPreview}`;
+
+      if (productBulkImportResult) {
+        productBulkImportResult.textContent = message;
+      }
+
+      showToast("Toplu urun yukleme tamamlandi.");
+      productBulkImportForm.reset();
+      await refreshCategories();
+      await refreshProducts();
+      await refreshVariants();
+      await refreshStockSummary();
+    } catch (error) {
+      showToast(parseErrorMessage(error, "Toplu urun yukleme hatasi."), "error");
+    }
+  });
+
   document.getElementById("variantForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.target;
@@ -5462,6 +6207,87 @@ async function setup() {
     const list = priceLists.find((item) => item.id === priceListSelect.value);
     showToast(`Fiyat listesi atandi: ${list?.name ?? "-"}`);
     await refreshDealerPriceLists();
+  });
+
+  exportDealerPricesCsvButton?.addEventListener("click", async () => {
+    const dealerId = getSelectedDealerId();
+    if (!dealerId) {
+      showToast("Lutfen once bayi secin.", "error");
+      return;
+    }
+    try {
+      await downloadAuthFile(
+        `/dealers/${dealerId}/price-lists/export?format=csv`,
+        `bayi-${dealerId}-fiyat.csv`
+      );
+      showToast("Bayi fiyat CSV dosyasi indirildi.");
+    } catch (error) {
+      showToast(parseErrorMessage(error, "Bayi fiyat CSV indirilemedi."), "error");
+    }
+  });
+
+  exportDealerPricesXlsxButton?.addEventListener("click", async () => {
+    const dealerId = getSelectedDealerId();
+    if (!dealerId) {
+      showToast("Lutfen once bayi secin.", "error");
+      return;
+    }
+    try {
+      await downloadAuthFile(
+        `/dealers/${dealerId}/price-lists/export?format=xlsx`,
+        `bayi-${dealerId}-fiyat.xlsx`
+      );
+      showToast("Bayi fiyat XLSX dosyasi indirildi.");
+    } catch (error) {
+      showToast(parseErrorMessage(error, "Bayi fiyat XLSX indirilemedi."), "error");
+    }
+  });
+
+  importDealerPricesButton?.addEventListener("click", async () => {
+    const dealerId = getSelectedDealerId();
+    if (!dealerId) {
+      showToast("Lutfen once bayi secin.", "error");
+      return;
+    }
+    const file = dealerPriceImportFile?.files?.[0];
+    if (!file) {
+      showToast("Lutfen fiyat dosyasi secin.", "error");
+      return;
+    }
+
+    try {
+      const contentBase64 = await fileToBase64(file);
+      const result = await api(`/dealers/${dealerId}/price-lists/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentBase64
+        })
+      });
+
+      const message =
+        `Toplam: ${result.totalRows} | Yeni: ${result.created} | Guncel: ${result.updated} | ` +
+        `Atlanan: ${result.skipped} | Hata: ${result.errors?.length ?? 0}`;
+
+      if (dealerPriceImportResult) {
+        const previewErrors =
+          Array.isArray(result.errors) && result.errors.length
+            ? `\n${result.errors
+                .slice(0, 3)
+                .map((item) => `Satir ${item.row}: ${item.message}`)
+                .join(" | ")}`
+            : "";
+        dealerPriceImportResult.textContent = `${message}${previewErrors}`;
+      }
+
+      showToast("Bayi fiyat dosyasi islendi.");
+      if (dealerPriceImportFile) dealerPriceImportFile.value = "";
+      await refreshPriceItems();
+      await refreshDealerPriceLists();
+    } catch (error) {
+      showToast(parseErrorMessage(error, "Bayi fiyat dosyasi yuklenemedi."), "error");
+    }
   });
 
   wooSiteForm?.addEventListener("submit", async (event) => {
@@ -5675,6 +6501,16 @@ async function setup() {
 
     const form = event.target;
     const role = form.role.value;
+    const password = String(form.password?.value ?? "").trim();
+    if (password.length < 6) {
+      showToast("Kullanici sifresi en az 6 karakter olmali.", "error");
+      return;
+    }
+    if (role === "DEALER" && !getSelectedDealerId()) {
+      showToast("Bayi rolunde bir bayi secmelisiniz.", "error");
+      return;
+    }
+
     await api("/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -5683,7 +6519,8 @@ async function setup() {
         dealerId: role === "DEALER" ? getSelectedDealerId() || undefined : undefined,
         name: form.name.value,
         email: form.email.value,
-        role
+        role,
+        password
       })
     });
 
@@ -5749,10 +6586,16 @@ async function setup() {
   });
 
   setProductFormCreateMode();
+  if (authContext?.authRequired && !getAdminAuthToken()) {
+    showToast("Yonetici e-posta ve sifre ile giris yapin.", "error");
+    setSection("overview");
+    return;
+  }
+
   try {
     await refreshAll();
   } catch (error) {
-    showToast(parseErrorMessage(error, "Veriler yuklenemedi. Yonetim API key girip tekrar deneyin."), "error");
+    showToast(parseErrorMessage(error, "Veriler yuklenemedi. Yonetim girisi yapip tekrar deneyin."), "error");
   }
   setSection("overview");
 }
@@ -5848,7 +6691,11 @@ function organizeMenuSections() {
 }
 
 const MENU_PANEL_RULES = [
-  ["overview", "Dashboard", ["Genel Bakis", "Ilk Kurulum Akisi", "Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal"]],
+  [
+    "overview",
+    "Dashboard",
+    ["Genel Bakis", "Ilk Kurulum Akisi", "Rol Bazli Hizli Aksiyonlar", "Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal"]
+  ],
   ["reports", "Bugunku satis", ["Rapor Filtreleri", "Satis Ozeti"]],
   ["stock", "Tahmini bayi stok uyarilari", ["Stok Durumu"]],
   ["stock", "Kritik depo stoklari", ["Depo Stok Raporu", "Stok Durumu"]],
@@ -5856,18 +6703,18 @@ const MENU_PANEL_RULES = [
   ["dispatch", "Son sevkiyatlar", ["Sevkiyat Listesi"]],
   ["production", "Uretim plani uyarilari", ["Uretim Planlama Asistani", "Uretim Onerileri"]],
 
-  ["products", "Urun Listesi", ["Urunler"]],
-  ["products", "Yeni Urun Ekle", ["Urun Ekle"]],
+  ["products", "Urun Listesi", ["Urunler", "Toplu Urun Yukleme (CSV/XLSX)"]],
+  ["products", "Yeni Urun Ekle", ["Urun Ekle", "Toplu Urun Yukleme (CSV/XLSX)"]],
   ["categories", "Kategoriler", ["Kategori Ekle", "Kategori Listesi"]],
   ["variants", "Varyasyonlar", ["Varyasyon Ekle", "Varyasyon Listesi"]],
-  ["prices", "Fiyat Listeleri", ["Yeni Fiyat Listesi", "Fiyat Listesi", "Fiyat Listesi Kalemleri", "Fiyat Listeleri", "Liste Urun Havuzu"]],
+  ["prices", "Fiyat Listeleri", ["Yeni Fiyat Listesi", "Fiyat Listesi", "Fiyat Listesi Kalemleri", "Fiyat Listeleri", "Liste Urun Havuzu", "Bayi Fiyat Dosyasi (CSV/XLSX)"]],
   ["gallery", "Urun Resimleri / Galeri", ["Urun Galeri", "Galeri Kayitlari"]],
   ["integrations", "XML / Katalog Ayarlari", ["Entegrasyon Merkezi", "Diger Kanal Hazirligi"]],
 
   ["dealers", "Bayi Listesi", ["Bayi Listesi"]],
   ["dealers", "Yeni Bayi Ekle", ["Firma Ekle", "Bayi Ekle"]],
   ["dealers", "Bayi Detayi", ["Bayi Listesi"]],
-  ["prices", "Bayi Fiyat Kurallari", ["Bayiye Fiyat Listesi Ata", "Bayi Fiyat Listeleri", "Liste Urun Havuzu"]],
+  ["prices", "Bayi Fiyat Kurallari", ["Bayiye Fiyat Listesi Ata", "Bayi Fiyat Listeleri", "Liste Urun Havuzu", "Bayi Fiyat Dosyasi (CSV/XLSX)"]],
   ["woo", "Bayi API / Entegrasyon Ayarlari", ["WooCommerce Entegrasyonu"]],
   ["integrations", "Bayi XML Ayarlari", ["Entegrasyon Merkezi", "Diger Kanal Hazirligi"]],
   ["stock", "Bayi Tahmini Stoklari", ["Stok Durumu"]],
@@ -5906,6 +6753,16 @@ const MENU_PANEL_RULES = [
   ["production", "Stokta Kac Gun Kaldi", ["Uretim Onerileri"]],
   ["production", "Uretim Partileri", ["Uretim Partileri"]],
   ["production", "Son Kullanma / Parti Takibi", ["Uretim Partileri"]],
+  [
+    "arge",
+    "Talep Goren Urunler (Uretime Deger)",
+    ["Ar-Ge Filtreleri", "Ar-Ge Ozet", "Talep Goren Urunler (Uretime Deger)"]
+  ],
+  [
+    "arge",
+    "Eslesmeyen Talep Analizi",
+    ["Ar-Ge Filtreleri", "Talep Goren Urunler (Uretime Deger)", "Ar-Ge Ozet"]
+  ],
 
   ["reports", "Satis Ozeti", ["Rapor Filtreleri", "Satis Ozeti"]],
   ["reports", "Urun Performansi", ["Rapor Filtreleri", "Woo Urun Satis Ozeti", "Urun Ozeti"]],
@@ -5931,7 +6788,7 @@ const MENU_PANEL_RULES = [
   ["users", "Oturum Gecmisi", ["Kullanici Listesi"]],
 
   ["settings", "Genel Ayarlar", ["Sistem Ayarlari Merkezi"]],
-  ["overview", "Sirket Bilgileri", ["Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal"]],
+  ["overview", "Sirket Bilgileri", ["Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal", "Rol Bazli Hizli Aksiyonlar"]],
   ["stock", "Depolar", ["Depo Ekle", "Depo Listesi", "Depo Stok Raporu"]],
   ["stock", "Lokasyonlar", ["Depo Listesi"]],
   ["system", "Audit Log", ["Audit Log"]],
@@ -5945,14 +6802,60 @@ const MENU_PANEL_RULES = [
   ["industry", "Workflow Sablonlari", ["Workflow Sablonlari", "Workflow Listesi"]],
   ["industry", "Rapor Presetleri", ["Rapor Presetleri", "Rapor Preset Listesi"]],
 
-  ["overview", "Firma Bilgileri", ["Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal"]],
+  ["overview", "Firma Bilgileri", ["Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal", "Rol Bazli Hizli Aksiyonlar"]],
   ["dealers", "Yeni Bayi / Firma Ekle", ["Firma Ekle", "Bayi Ekle"]],
   ["woo", "Bayi API Ayarlari", ["WooCommerce Entegrasyonu"]],
   ["overview", "Firma/Bayi Ayarlari", ["Firma Ayarlari", "Bayi Ayarlari", "Bayi Portal"]],
   ["users", "Kullanici Rolleri", ["Kullanici Listesi"]],
   ["woo", "Entegrasyon Baglantilari", ["WooCommerce Entegrasyonu"]],
   ["settings", "Sistem Ayarlari", ["Sistem Ayarlari Merkezi"]],
-  ["users", "Yetki Rolleri", ["Kullanici Listesi"]]
+  ["users", "Yetki Rolleri", ["Kullanici Listesi"]],
+
+  ["overview", "Genel Bakis", ["Genel Bakis", "Ilk Kurulum Akisi", "Rol Bazli Hizli Aksiyonlar"]],
+  ["settings", "Operasyon Ozeti", ["Sistem Ayarlari Merkezi", "Firma Veri Sagligi", "Entegrasyon Sagligi"]],
+
+  ["orders", "Tum Siparisler", ["Siparis Listesi"]],
+  ["orders", "Manuel Siparis Girisi", ["Manuel Siparis", "Siparis Listesi"]],
+  ["dispatch", "Sevkiyat Akisi", ["Yeni Sevkiyat Olustur", "Sevkiyat Listesi"]],
+  ["woo", "Woo Siparis Senkron", ["WooCommerce Entegrasyonu"]],
+  ["unmapped", "Eslesmeyen Siparisler", ["Eslesmeyen Siparis Satirlari", "Eslesmeyenden Urun Olustur"]],
+
+  ["stock", "Stok Durumu", ["Stok Durumu", "Depo Stok Raporu"]],
+  ["stock", "Stok Hareketleri", ["Stok Hareketi", "Stok Hareket Listesi"]],
+  ["stock", "Depo Yonetimi", ["Depo Ekle", "Depo Listesi", "Depo Stok Raporu"]],
+  ["stock", "Bayi Tahmini Stok", ["Stok Durumu"]],
+
+  ["ledger", "Cari Ozeti", ["Cari Ozeti"]],
+  ["ledger", "Cari Hareketler", ["Cari Hareket", "Cari Ozeti"]],
+  ["ledger", "Tahsilat ve Vade", ["Cari Hareket", "Cari Ozeti"]],
+
+  ["reports", "Satis Ozeti", ["Rapor Filtreleri", "Satis Ozeti"]],
+  ["reports", "Urun Performansi", ["Rapor Filtreleri", "Woo Urun Satis Ozeti", "Urun Ozeti"]],
+  ["unmapped-summary", "Eslesmeyen Urun Ozeti", ["Eslesmeyen Urun Ozeti", "Uretim Firsati Listesi"]],
+  ["arge", "Talep Goren Urunler", ["Ar-Ge Filtreleri", "Ar-Ge Ozet", "Talep Goren Urunler (Uretime Deger)"]],
+
+  ["woo", "WooCommerce", ["WooCommerce Entegrasyonu"]],
+  ["mapping", "Urun Eslestirme", ["Urun Esleme", "CSV Esleme", "Esleme Listesi"]],
+  ["integrations", "Kanal Entegrasyonlari", ["Entegrasyon Merkezi", "Diger Kanal Hazirligi"]],
+  ["integrations", "Senkronizasyon ve Loglar", ["Entegrasyon Merkezi", "Eslesmeyen Siparis Satirlari"]],
+  ["integrations", "XML Feed Yonetimi", ["Entegrasyon Merkezi", "Diger Kanal Hazirligi"]],
+
+  ["production", "Uretim Planlama", ["Uretim Planlama Asistani", "Uretim Onerileri"]],
+  ["production", "Uretim Partileri", ["Uretim Partisi Ekle", "Uretim Partileri"]],
+  ["arge", "Ar-Ge Talep Analizi", ["Ar-Ge Filtreleri", "Ar-Ge Ozet", "Talep Goren Urunler (Uretime Deger)"]],
+
+  ["products", "Urunler", ["Urun Ekle", "Urunler", "Toplu Urun Yukleme (CSV/XLSX)"]],
+  ["categories", "Kategoriler", ["Kategori Ekle", "Kategori Listesi"]],
+  ["variants", "Varyasyonlar", ["Varyasyon Ekle", "Varyasyon Listesi"]],
+  ["prices", "Fiyat Listeleri", ["Yeni Fiyat Listesi", "Fiyat Listesi", "Fiyat Listesi Kalemleri", "Fiyat Listeleri", "Liste Urun Havuzu", "Bayi Fiyat Dosyasi (CSV/XLSX)"]],
+  ["gallery", "Urun Galeri", ["Urun Galeri", "Galeri Kayitlari"]],
+
+  ["dealers", "Firma Bayi Yonetimi", ["Bayiler / Firmalar", "Bayi Listesi", "Firma Ekle", "Firma Listesi", "Bayi Ekle"]],
+  ["users", "Kullanici ve Yetkiler", ["Kullanici Ekle", "Kullanici Listesi"]],
+  ["settings", "Sistem Ayarlari", ["Sistem Ayarlari Merkezi", "Rapor Disa Aktarim", "Firma Veri Sagligi", "Entegrasyon Sagligi"]],
+  ["industry", "Sektor Paketleri", ["Sektor Profilleri", "Sektor Ozeti", "Dinamik Alan Tanimlari", "Dinamik Alan Listesi", "Sektor Fiyat Kurallari", "Fiyat Kurali Listesi", "Workflow Sablonlari", "Workflow Listesi", "Rapor Presetleri", "Rapor Preset Listesi"]],
+  ["system", "Audit ve Sistem Logu", ["Sistem Yonetimi", "Audit Log"]],
+  ["saas", "SaaS Tenant", ["Platform Yonetimi (SaaS Hazirligi)", "Tenant Ozet Tablosu"]]
 ];
 
 const MENU_PANEL_MAP = Object.fromEntries(
@@ -5961,6 +6864,22 @@ const MENU_PANEL_MAP = Object.fromEntries(
     panels.map((panel) => normalizeMenuText(panel))
   ])
 );
+
+const DEFAULT_SECTION_PANELS = {
+  overview: ["Genel Bakis", "Ilk Kurulum Akisi", "Rol Bazli Hizli Aksiyonlar"],
+  dealers: ["Bayi Listesi", "Bayi Ekle", "Firma Ekle"],
+  products: ["Urun Ekle", "Urunler"],
+  stock: ["Stok Durumu", "Depo Stok Raporu"],
+  orders: ["Siparis Listesi", "Manuel Siparis"],
+  dispatch: ["Yeni Sevkiyat Olustur", "Sevkiyat Listesi"],
+  production: ["Uretim Planlama Asistani", "Uretim Onerileri"],
+  arge: ["Ar-Ge Filtreleri", "Talep Goren Urunler (Uretime Deger)", "Ar-Ge Ozet"],
+  reports: ["Rapor Filtreleri", "Satis Ozeti"],
+  integrations: ["Entegrasyon Merkezi"],
+  unmapped: ["Eslesmeyen Siparis Satirlari", "Eslesmeyenden Urun Olustur"],
+  "unmapped-summary": ["Eslesmeyen Urun Ozeti", "Uretim Firsati Listesi"],
+  ledger: ["Cari Ozeti", "Cari Hareket"]
+};
 
 function getSectionElement(target) {
   return document.querySelector(`.section[data-section="${target}"]`);
@@ -6045,8 +6964,12 @@ function applySectionPanelFilter(target, focusLabel) {
 
   clearSectionPanelFilter(target);
 
-  const panelKeys = resolvePanelKeys(target, focusLabel);
-  if (!panelKeys.length) return;
+  let panelKeys = resolvePanelKeys(target, focusLabel);
+  if (!panelKeys.length) {
+    const defaults = DEFAULT_SECTION_PANELS[target];
+    if (!defaults?.length) return;
+    panelKeys = defaults.map((panel) => normalizeMenuText(panel));
+  }
 
   const allowed = new Set(panelKeys);
   panels.forEach((panel) => {
@@ -6093,10 +7016,17 @@ function setSection(target, focusLabel = "", activeButton = null) {
   setActiveSidebarButton(target, activeButton);
   applySectionPanelFilter(target, focusLabel);
   focusSectionContent(target);
+  closeAdminMobileMenu();
 
   if (target === "settings") {
     refreshSettingsSection().catch(() => {
       showToast("Sistem ayarlari verileri yuklenemedi.", "error");
+    });
+  }
+
+  if (target === "overview") {
+    refreshOnboardingPanel().catch(() => {
+      showToast("Kurulum ozeti yuklenemedi.", "error");
     });
   }
 
@@ -6115,6 +7045,12 @@ function setSection(target, focusLabel = "", activeButton = null) {
   if (target === "unmapped-summary") {
     refreshUnmappedSummary().catch(() => {
       showToast("Eslesmeyen urun ozeti yuklenemedi.", "error");
+    });
+  }
+
+  if (target === "arge") {
+    refreshArge().catch(() => {
+      showToast("Ar-Ge talep analizi yuklenemedi.", "error");
     });
   }
 

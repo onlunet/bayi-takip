@@ -1,5 +1,6 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
+import { getDealerRegistrationEnabled, setDealerRegistrationEnabled } from "../lib/dealerMembership.js";
 const createSchema = z.object({
     name: z.string().min(1),
     email: z.string().email().optional(),
@@ -15,6 +16,9 @@ const deleteQuerySchema = z.object({
         .string()
         .optional()
         .transform((value) => value === "true" || value === "1")
+});
+const dealerRegistrationSchema = z.object({
+    enabled: z.boolean()
 });
 export async function registerCompanyRoutes(app) {
     app.post("/companies", async (request, reply) => {
@@ -46,6 +50,33 @@ export async function registerCompanyRoutes(app) {
         });
         reply.send(company);
     });
+    app.get("/companies/:id/dealer-registration", async (request, reply) => {
+        const companyId = request.params.id;
+        const company = await prisma.company.findUnique({
+            where: { id: companyId },
+            select: { id: true }
+        });
+        if (!company) {
+            reply.status(404).send({ message: "Company not found" });
+            return;
+        }
+        const enabled = await getDealerRegistrationEnabled(companyId);
+        reply.send({ companyId, enabled });
+    });
+    app.post("/companies/:id/dealer-registration", async (request, reply) => {
+        const companyId = request.params.id;
+        const data = dealerRegistrationSchema.parse(request.body);
+        const company = await prisma.company.findUnique({
+            where: { id: companyId },
+            select: { id: true }
+        });
+        if (!company) {
+            reply.status(404).send({ message: "Company not found" });
+            return;
+        }
+        await setDealerRegistrationEnabled(companyId, data.enabled);
+        reply.send({ companyId, enabled: data.enabled });
+    });
     app.delete("/companies/:id", async (request, reply) => {
         const { force } = deleteQuerySchema.parse(request.query ?? {});
         const companyId = request.params.id;
@@ -74,6 +105,11 @@ export async function registerCompanyRoutes(app) {
             const dispatchIds = dispatches.map((d) => d.id);
             await tx.auditLog.deleteMany({ where: { companyId } });
             await tx.integrationLog.deleteMany({ where: { companyId } });
+            await tx.integrationSyncAttempt.deleteMany({
+                where: { job: { is: { companyId } } }
+            });
+            await tx.integrationSyncJob.deleteMany({ where: { companyId } });
+            await tx.dealerServiceRequest.deleteMany({ where: { companyId } });
             await tx.attributeValue.deleteMany({ where: { companyId } });
             await tx.attributeDefinition.deleteMany({ where: { companyId } });
             await tx.pricingRule.deleteMany({ where: { companyId } });

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
-import { normalizeMatchText, rankMappingSuggestions } from "../lib/mappingSuggestions";
+import prisma from "../lib/prisma.js";
+import { normalizeMatchText, rankMappingSuggestions } from "../lib/mappingSuggestions.js";
 const mappingSchema = z.object({
     companyId: z.string().min(1),
     dealerId: z.string().min(1),

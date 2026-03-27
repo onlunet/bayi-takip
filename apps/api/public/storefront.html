@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bayi Magazasi</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="data:," />
+  </head>
+  <body class="page-storefront">
+    <div class="bg-accent"></div>
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="brand">Bayi Magazasi</div>
+          <div class="subtitle" id="storefrontSubtitle">Katalog yukleniyor...</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="pill" id="storefrontStatus">Baglanti bekleniyor</span>
+      </div>
+    </header>
+
+    <main class="container storefront-layout">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Urunler</h2>
+          <p>Musteri secimlerini yapip sepete ekleyebilirsiniz.</p>
+        </div>
+        <div class="panel-body">
+          <div class="row">
+            <input id="storefrontSearch" placeholder="Urun ara..." />
+            <button id="storefrontRefresh" class="btn ghost">Yenile</button>
+          </div>
+          <div id="storefrontProducts" class="storefront-grid"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Sepet ve Siparis</h2>
+          <p>Secilen urunler ust bayi paneline siparis olarak dusecek.</p>
+        </div>
+        <div class="panel-body">
+          <table class="table" id="storefrontCartTable"></table>
+          <div class="summary" id="storefrontCartSummary">Sepet bos.</div>
+          <input id="storefrontCustomerName" placeholder="Musteri adi soyadi" />
+          <input id="storefrontCustomerPhone" placeholder="Telefon (opsiyonel)" />
+          <textarea id="storefrontCustomerNote" rows="3" placeholder="Siparis notu (opsiyonel)"></textarea>
+          <div class="row">
+            <button id="storefrontSubmitOrder" class="btn">Siparis Gonder</button>
+            <button id="storefrontClearCart" class="btn ghost">Sepeti Temizle</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="/storefront.js"></script>
+  </body>
+</html>

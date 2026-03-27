@@ -1,5 +1,5 @@
 import { z } from "zod";
-import prisma from "../lib/prisma";
+import prisma from "../lib/prisma.js";
 const batchSchema = z.object({
     companyId: z.string().min(1),
     productId: z.string().min(1),

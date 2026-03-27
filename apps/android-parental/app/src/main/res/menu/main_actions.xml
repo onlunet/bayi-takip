@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_switch_profile"
+        android:title="@string/menu_switch_profile" />
+    <item
+        android:id="@+id/action_open_parent"
+        android:title="@string/menu_open_parent" />
+    <item
+        android:id="@+id/action_open_child"
+        android:title="@string/menu_open_child" />
+    <item
+        android:id="@+id/action_open_admin"
+        android:title="@string/menu_open_admin" />
+    <item
+        android:id="@+id/action_open_deletion"
+        android:title="@string/menu_open_deletion" />
+    <item
+        android:id="@+id/action_clear_session"
+        android:title="@string/menu_clear_session" />
+</menu>
