@@ -1419,6 +1419,49 @@
     </div>
     <div id="adminMenuBackdrop" class="menu-backdrop" aria-hidden="true"></div>
 
+    <div id="userEditModal" class="modal" aria-hidden="true">
+      <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="userEditModalTitle">
+        <div class="modal-header">
+          <h3 id="userEditModalTitle">Kullanici Duzenle</h3>
+          <button id="closeUserEditModal" type="button" class="btn ghost">Kapat</button>
+        </div>
+        <form id="userEditForm" class="modal-body">
+          <input type="hidden" name="id" />
+          <input name="name" placeholder="Kullanici adi" required />
+          <select name="role" required>
+            <option value="OWNER">Owner</option>
+            <option value="ADMIN">Admin</option>
+            <option value="WAREHOUSE">Depo</option>
+            <option value="ACCOUNTING">Muhasebe</option>
+            <option value="DEALER">Bayi</option>
+          </select>
+          <label class="hint"><input type="checkbox" name="active" /> Aktif kullanici</label>
+          <div class="row">
+            <button class="btn" type="submit">Guncelle</button>
+            <button id="cancelUserEditModal" type="button" class="btn ghost">Iptal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="userPasswordModal" class="modal" aria-hidden="true">
+      <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="userPasswordModalTitle">
+        <div class="modal-header">
+          <h3 id="userPasswordModalTitle">Kullanici Sifresi Guncelle</h3>
+          <button id="closeUserPasswordModal" type="button" class="btn ghost">Kapat</button>
+        </div>
+        <form id="userPasswordForm" class="modal-body">
+          <input type="hidden" name="id" />
+          <input name="password" type="password" minlength="6" placeholder="Yeni sifre (en az 6 karakter)" required />
+          <input name="passwordConfirm" type="password" minlength="6" placeholder="Yeni sifre tekrar" required />
+          <div class="row">
+            <button class="btn" type="submit">Sifreyi Guncelle</button>
+            <button id="cancelUserPasswordModal" type="button" class="btn ghost">Iptal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div id="toast" class="toast"></div>
     <script src="/app.js"></script>
   </body>

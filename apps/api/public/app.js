@@ -135,6 +135,14 @@ const testRoleBar = document.getElementById("testRoleBar");
 const testRoleInfo = document.getElementById("testRoleInfo");
 const testRoleReset = document.getElementById("testRoleReset");
 const openDealerPortalQuick = document.getElementById("openDealerPortalQuick");
+const userEditModal = document.getElementById("userEditModal");
+const userEditForm = document.getElementById("userEditForm");
+const closeUserEditModalButton = document.getElementById("closeUserEditModal");
+const cancelUserEditModalButton = document.getElementById("cancelUserEditModal");
+const userPasswordModal = document.getElementById("userPasswordModal");
+const userPasswordForm = document.getElementById("userPasswordForm");
+const closeUserPasswordModalButton = document.getElementById("closeUserPasswordModal");
+const cancelUserPasswordModalButton = document.getElementById("cancelUserPasswordModal");
 
 const MOBILE_DRAWER_BREAKPOINT = 900;
 const ENABLE_TEST_ROLE_SWITCHER = true;
@@ -203,6 +211,8 @@ const ORDER_STATUS_OPTIONS = [
   "EXCHANGED",
   "CANCELLED"
 ];
+
+const USER_ROLE_OPTIONS = ["OWNER", "ADMIN", "WAREHOUSE", "ACCOUNTING", "DEALER"];
 
 const ROLE_ALLOWED_TARGETS = {
   OWNER: null,
@@ -561,6 +571,8 @@ function initAdminMobileMenu() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeUserEditModal();
+      closeUserPasswordModal();
       closeAdminMobileMenu();
     }
   });
@@ -1132,6 +1144,50 @@ function promptYesNo(label, currentValue) {
   if (["h", "hayir", "0", "false", "pasif"].includes(value)) return false;
   showToast("Lutfen E veya H girin.", "error");
   return null;
+}
+
+function setModalVisibility(modal, visible) {
+  if (!modal) return;
+  modal.classList.toggle("show", visible);
+  modal.setAttribute("aria-hidden", String(!visible));
+}
+
+function closeUserEditModal() {
+  setModalVisibility(userEditModal, false);
+}
+
+function openUserEditModal(user) {
+  if (!userEditForm) return;
+  const idInput = userEditForm.querySelector('input[name="id"]');
+  const nameInput = userEditForm.querySelector('input[name="name"]');
+  const roleSelect = userEditForm.querySelector('select[name="role"]');
+  const activeInput = userEditForm.querySelector('input[name="active"]');
+
+  if (idInput) idInput.value = user.id ?? "";
+  if (nameInput) nameInput.value = user.name ?? "";
+  if (roleSelect) roleSelect.value = String(user.role ?? "DEALER").toUpperCase();
+  if (activeInput) activeInput.checked = Boolean(user.active);
+
+  setModalVisibility(userEditModal, true);
+  nameInput?.focus();
+}
+
+function closeUserPasswordModal() {
+  setModalVisibility(userPasswordModal, false);
+}
+
+function openUserPasswordModal(user) {
+  if (!userPasswordForm) return;
+  const idInput = userPasswordForm.querySelector('input[name="id"]');
+  const passwordInput = userPasswordForm.querySelector('input[name="password"]');
+  const confirmInput = userPasswordForm.querySelector('input[name="passwordConfirm"]');
+
+  if (idInput) idInput.value = user.id ?? "";
+  if (passwordInput) passwordInput.value = "";
+  if (confirmInput) confirmInput.value = "";
+
+  setModalVisibility(userPasswordModal, true);
+  passwordInput?.focus();
 }
 
 function renderCompanyOptions() {
@@ -3166,7 +3222,6 @@ async function refreshLedger() {
 async function refreshUsers() {
   const companyId = getSelectedCompanyId();
   const users = await api(`/users${buildQuery({ companyId })}`);
-  const roleList = ["OWNER", "ADMIN", "WAREHOUSE", "ACCOUNTING", "DEALER"];
 
   renderTable(
     "userTable",
@@ -3181,55 +3236,16 @@ async function refreshUsers() {
         {
           label: "Duzenle",
           className: "btn ghost",
-          onClick: async () => {
-            const name = promptRequired("Kullanici adi", user.name);
-            if (name === null) return;
-
-            const roleInput = promptRequired(
-              "Rol (OWNER, ADMIN, WAREHOUSE, ACCOUNTING, DEALER)",
-              user.role
-            );
-            if (roleInput === null) return;
-
-            const role = roleInput.toUpperCase();
-            if (!roleList.includes(role)) {
-              showToast("Gecersiz rol girdiniz.", "error");
-              return;
-            }
-
-            const active = promptYesNo("Kullanici aktif mi? (E/H)", user.active);
-            if (active === null) return;
-
-            await api(`/users/${user.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name, role, active })
-            });
-
-            showToast("Kullanici guncellendi.");
-            await refreshUsers();
+          onClick: () => {
+            openUserEditModal(user);
           },
           sortValue: ""
         },
         {
           label: "Sifre Guncelle",
           className: "btn ghost",
-          onClick: async () => {
-            const password = promptRequired("Yeni sifre (en az 6 karakter)", "");
-            if (password === null) return;
-            const normalized = String(password).trim();
-            if (normalized.length < 6) {
-              showToast("Sifre en az 6 karakter olmali.", "error");
-              return;
-            }
-
-            await api(`/users/${user.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ password: normalized })
-            });
-
-            showToast("Kullanici sifresi guncellendi.");
+          onClick: () => {
+            openUserPasswordModal(user);
           }
         }
       ]
@@ -5185,6 +5201,92 @@ async function setup() {
       adminLoginButton?.click();
     });
   });
+
+  closeUserEditModalButton?.addEventListener("click", () => {
+    closeUserEditModal();
+  });
+  cancelUserEditModalButton?.addEventListener("click", () => {
+    closeUserEditModal();
+  });
+  userEditModal?.addEventListener("click", (event) => {
+    if (event.target === userEditModal) {
+      closeUserEditModal();
+    }
+  });
+  userEditForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const id = String(formData.get("id") ?? "").trim();
+    const name = String(formData.get("name") ?? "").trim();
+    const role = String(formData.get("role") ?? "").trim().toUpperCase();
+    const active = formData.get("active") !== null;
+
+    if (!id || !name) {
+      showToast("Kullanici bilgileri eksik.", "error");
+      return;
+    }
+
+    if (!USER_ROLE_OPTIONS.includes(role)) {
+      showToast("Gecersiz rol secildi.", "error");
+      return;
+    }
+
+    await api(`/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, role, active })
+    });
+
+    closeUserEditModal();
+    showToast("Kullanici guncellendi.");
+    await refreshUsers();
+  });
+
+  closeUserPasswordModalButton?.addEventListener("click", () => {
+    closeUserPasswordModal();
+  });
+  cancelUserPasswordModalButton?.addEventListener("click", () => {
+    closeUserPasswordModal();
+  });
+  userPasswordModal?.addEventListener("click", (event) => {
+    if (event.target === userPasswordModal) {
+      closeUserPasswordModal();
+    }
+  });
+  userPasswordForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const id = String(formData.get("id") ?? "").trim();
+    const password = String(formData.get("password") ?? "").trim();
+    const passwordConfirm = String(formData.get("passwordConfirm") ?? "").trim();
+
+    if (!id) {
+      showToast("Kullanici secimi bulunamadi.", "error");
+      return;
+    }
+
+    if (password.length < 6) {
+      showToast("Sifre en az 6 karakter olmali.", "error");
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      showToast("Sifre tekrar alani uyusmuyor.", "error");
+      return;
+    }
+
+    await api(`/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+
+    closeUserPasswordModal();
+    showToast("Kullanici sifresi guncellendi.");
+  });
+
   try {
     await api("/health");
     health.textContent = "API: aktif";
