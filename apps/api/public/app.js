@@ -209,6 +209,7 @@ const ROLE_ALLOWED_TARGETS = {
   ADMIN: null,
   WAREHOUSE: new Set([
     "overview",
+    "companies",
     "products",
     "categories",
     "variants",
@@ -230,6 +231,7 @@ const ROLE_ALLOWED_TARGETS = {
   ]),
   ACCOUNTING: new Set([
     "overview",
+    "companies",
     "dealers",
     "orders",
     "dispatch",
@@ -6721,8 +6723,12 @@ function remapQuickNavTarget(label, target) {
 }
 
 function organizeMenuSections() {
-  movePanelToSection("Firma Ekle", "dealers");
-  movePanelToSection("Firma Listesi", "dealers");
+  movePanelToSection("Firma Ayarlari", "companies");
+  movePanelToSection("Firma Ekle", "companies");
+  movePanelToSection("Firma Listesi", "companies");
+
+  movePanelToSection("Bayi Ayarlari", "dealers");
+  movePanelToSection("Bayi Portal", "dealers");
   movePanelToSection("Bayi Ekle", "dealers");
 
   movePanelToSection("Kategori Ekle", "categories");
@@ -6735,8 +6741,11 @@ function organizeMenuSections() {
   remapSidebarTarget("Kategoriler", "categories");
   remapSidebarTarget("Varyasyonlar", "variants");
   remapSidebarTarget("Urun Resimleri / Galeri", "gallery");
-  remapSidebarTarget("Yeni Bayi Ekle", "dealers");
-  remapQuickNavTarget("Yeni Bayi / Firma Ekle", "dealers");
+  remapSidebarTarget("Firma Yonetimi", "companies");
+  remapSidebarTarget("Bayi Yonetimi", "dealers");
+  remapQuickNavTarget("Firma Bilgileri", "companies");
+  remapQuickNavTarget("Firma Yonetimi", "companies");
+  remapQuickNavTarget("Yeni Bayi Ekle", "dealers");
 }
 
 const MENU_PANEL_RULES = [
@@ -6761,6 +6770,8 @@ const MENU_PANEL_RULES = [
   ["integrations", "XML / Katalog Ayarlari", ["Entegrasyon Merkezi", "Diger Kanal Hazirligi"]],
 
   ["dealers", "Bayi Listesi", ["Bayi Listesi"]],
+  ["companies", "Firma Yonetimi", ["Firma Ayarlari", "Firma Ekle", "Firma Listesi"]],
+  ["dealers", "Bayi Yonetimi", ["Bayi Ayarlari", "Bayi Ekle", "Bayi Listesi", "Bayi Portal"]],
   ["dealers", "Yeni Bayi Ekle", ["Firma Ekle", "Bayi Ekle"]],
   ["dealers", "Bayi Detayi", ["Bayi Listesi"]],
   ["prices", "Bayi Fiyat Kurallari", ["Bayiye Fiyat Listesi Ata", "Bayi Fiyat Listeleri", "Liste Urun Havuzu", "Bayi Fiyat Dosyasi (CSV/XLSX)"]],
@@ -6916,7 +6927,8 @@ const MENU_PANEL_MAP = Object.fromEntries(
 
 const DEFAULT_SECTION_PANELS = {
   overview: ["Genel Bakis", "Ilk Kurulum Akisi", "Rol Bazli Hizli Aksiyonlar"],
-  dealers: ["Bayi Listesi", "Bayi Ekle", "Firma Ekle"],
+  companies: ["Firma Ayarlari", "Firma Ekle", "Firma Listesi"],
+  dealers: ["Bayi Ayarlari", "Bayi Ekle", "Bayi Listesi", "Bayi Portal"],
   products: ["Urun Ekle", "Urunler"],
   stock: ["Stok Durumu", "Depo Stok Raporu"],
   orders: ["Siparis Listesi", "Manuel Siparis"],
