@@ -20,6 +20,12 @@ const dealerRotateStorefrontKey = document.getElementById("dealerRotateStorefron
 const dealerOpenStorefront = document.getElementById("dealerOpenStorefront");
 const dealerLedger = document.getElementById("dealerLedger");
 const toast = document.getElementById("toast");
+const dealerConfirmModal = document.getElementById("dealerConfirmModal");
+const dealerConfirmTitle = document.getElementById("dealerConfirmTitle");
+const dealerConfirmMessage = document.getElementById("dealerConfirmMessage");
+const dealerConfirmApprove = document.getElementById("dealerConfirmApprove");
+const dealerConfirmCancel = document.getElementById("dealerConfirmCancel");
+const closeDealerConfirmModal = document.getElementById("closeDealerConfirmModal");
 
 const dealerOrderCustomerSelect = document.getElementById("dealerOrderCustomerSelect");
 const dealerOrderCustomerName = document.getElementById("dealerOrderCustomerName");
@@ -54,6 +60,7 @@ let orderHistory = [];
 let dealerCustomers = [];
 let isDealerMenuOpen = false;
 let dealerAuthToken = localStorage.getItem(DEALER_AUTH_TOKEN_STORAGE_KEY) || "";
+let dealerConfirmState = null;
 
 function showToast(message, type = "info") {
   toast.textContent = message;
@@ -74,6 +81,69 @@ function parseErrorMessage(error, fallback = "Bir hata olustu") {
     // Mesaj JSON degilse oldugu gibi don.
   }
   return message;
+}
+
+function setDealerModalVisibility(modal, visible) {
+  if (!modal) return;
+  modal.classList.toggle("show", visible);
+  modal.setAttribute("aria-hidden", String(!visible));
+}
+
+function closeDealerConfirmDialog(result = false) {
+  if (!dealerConfirmState) return;
+  const { resolve, cleanup } = dealerConfirmState;
+  dealerConfirmState = null;
+  cleanup?.();
+  setDealerModalVisibility(dealerConfirmModal, false);
+  resolve(Boolean(result));
+}
+
+async function confirmDealerAction(message, options = {}) {
+  if (!dealerConfirmModal) {
+    return false;
+  }
+
+  if (dealerConfirmState) {
+    closeDealerConfirmDialog(false);
+  }
+
+  dealerConfirmTitle.textContent = options.title || "Onay";
+  dealerConfirmMessage.textContent = message || "Devam etmek istiyor musunuz?";
+  if (dealerConfirmApprove) {
+    dealerConfirmApprove.textContent = options.confirmLabel || "Onayla";
+    dealerConfirmApprove.className = options.confirmClassName || "btn danger";
+  }
+  if (dealerConfirmCancel) {
+    dealerConfirmCancel.textContent = options.cancelLabel || "Iptal";
+  }
+
+  return new Promise((resolve) => {
+    const approve = () => closeDealerConfirmDialog(true);
+    const cancel = () => closeDealerConfirmDialog(false);
+    const backdrop = (event) => {
+      if (event.target === dealerConfirmModal) {
+        closeDealerConfirmDialog(false);
+      }
+    };
+
+    dealerConfirmApprove?.addEventListener("click", approve);
+    dealerConfirmCancel?.addEventListener("click", cancel);
+    closeDealerConfirmModal?.addEventListener("click", cancel);
+    dealerConfirmModal.addEventListener("click", backdrop);
+
+    dealerConfirmState = {
+      resolve,
+      cleanup: () => {
+        dealerConfirmApprove?.removeEventListener("click", approve);
+        dealerConfirmCancel?.removeEventListener("click", cancel);
+        closeDealerConfirmModal?.removeEventListener("click", cancel);
+        dealerConfirmModal.removeEventListener("click", backdrop);
+      }
+    };
+
+    setDealerModalVisibility(dealerConfirmModal, true);
+    dealerConfirmApprove?.focus();
+  });
 }
 
 function isMobileDrawerViewport() {
@@ -149,6 +219,7 @@ function initDealerMobileMenu() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeDealerConfirmDialog(false);
       closeDealerMobileMenu();
     }
   });
@@ -452,7 +523,7 @@ function renderDealerCustomersTable() {
           label: "Sil",
           className: "btn ghost",
           onClick: async () => {
-            const ok = confirm("Musteriyi silmek istediginize emin misiniz?");
+            const ok = await confirmDealerAction("Musteriyi silmek istediginize emin misiniz?");
             if (!ok) return;
             try {
               const result = await api(`/dealer/customers/${customer.id}`, {

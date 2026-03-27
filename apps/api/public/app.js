@@ -143,6 +143,19 @@ const userPasswordModal = document.getElementById("userPasswordModal");
 const userPasswordForm = document.getElementById("userPasswordForm");
 const closeUserPasswordModalButton = document.getElementById("closeUserPasswordModal");
 const cancelUserPasswordModalButton = document.getElementById("cancelUserPasswordModal");
+const actionFormModal = document.getElementById("actionFormModal");
+const actionFormElement = document.getElementById("actionFormElement");
+const actionFormFields = document.getElementById("actionFormFields");
+const actionFormModalTitle = document.getElementById("actionFormModalTitle");
+const actionFormSubmit = document.getElementById("actionFormSubmit");
+const closeActionFormModalButton = document.getElementById("closeActionFormModal");
+const cancelActionFormModalButton = document.getElementById("cancelActionFormModal");
+const actionConfirmModal = document.getElementById("actionConfirmModal");
+const actionConfirmTitle = document.getElementById("actionConfirmTitle");
+const actionConfirmMessage = document.getElementById("actionConfirmMessage");
+const actionConfirmApproveButton = document.getElementById("actionConfirmApprove");
+const actionConfirmCancelButton = document.getElementById("actionConfirmCancel");
+const closeActionConfirmModalButton = document.getElementById("closeActionConfirmModal");
 
 const MOBILE_DRAWER_BREAKPOINT = 900;
 const ENABLE_TEST_ROLE_SWITCHER = true;
@@ -190,6 +203,8 @@ let activeMenuContext = {
   target: "overview",
   label: "Dashboard"
 };
+let actionFormDialogState = null;
+let actionConfirmDialogState = null;
 
 const PLATFORM_LABELS = {
   WOO: "WooCommerce",
@@ -571,6 +586,8 @@ function initAdminMobileMenu() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
+      closeActionFormDialog(null);
+      closeActionConfirmDialog(false);
       closeUserEditModal();
       closeUserPasswordModal();
       closeAdminMobileMenu();
@@ -1118,32 +1135,231 @@ function setProductFormEditMode(product) {
   productForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function promptRequired(label, currentValue) {
-  const raw = window.prompt(label, currentValue ?? "");
-  if (raw === null) return null;
-  const value = raw.trim();
-  if (!value) {
-    showToast("Bu alan bos birakilamaz.", "error");
+function closeActionFormDialog(result = null) {
+  if (!actionFormDialogState) return;
+  const { resolve, cleanup } = actionFormDialogState;
+  actionFormDialogState = null;
+  cleanup?.();
+  setModalVisibility(actionFormModal, false);
+  resolve(result);
+}
+
+function closeActionConfirmDialog(result = false) {
+  if (!actionConfirmDialogState) return;
+  const { resolve, cleanup } = actionConfirmDialogState;
+  actionConfirmDialogState = null;
+  cleanup?.();
+  setModalVisibility(actionConfirmModal, false);
+  resolve(Boolean(result));
+}
+
+function createModalField(field) {
+  const wrapper = document.createElement("label");
+  wrapper.textContent = field.label || field.name;
+
+  let input;
+  if (field.type === "textarea") {
+    input = document.createElement("textarea");
+    input.rows = field.rows ?? 5;
+  } else if (field.type === "select") {
+    input = document.createElement("select");
+    (field.options ?? []).forEach((option) => {
+      const opt = document.createElement("option");
+      if (typeof option === "string") {
+        opt.value = option;
+        opt.textContent = option;
+      } else {
+        opt.value = option.value;
+        opt.textContent = option.label;
+      }
+      input.appendChild(opt);
+    });
+  } else {
+    input = document.createElement("input");
+    input.type = field.type ?? "text";
+  }
+
+  input.name = field.name;
+  if (field.placeholder) input.placeholder = field.placeholder;
+  if (field.required) input.required = true;
+  if (field.min !== undefined) input.min = String(field.min);
+  if (field.max !== undefined) input.max = String(field.max);
+  if (field.step !== undefined) input.step = String(field.step);
+
+  if (field.type === "checkbox") {
+    input.checked = Boolean(field.value);
+  } else if (field.value !== undefined && field.value !== null) {
+    input.value = String(field.value);
+  }
+
+  wrapper.appendChild(input);
+  return { wrapper, input };
+}
+
+async function openActionFormDialog({ title, submitLabel = "Kaydet", fields = [] }) {
+  if (!actionFormModal || !actionFormElement || !actionFormFields) {
     return null;
   }
-  return value;
+
+  if (actionFormDialogState) {
+    closeActionFormDialog(null);
+  }
+
+  actionFormModalTitle.textContent = title || "Duzenle";
+  if (actionFormSubmit) actionFormSubmit.textContent = submitLabel;
+  actionFormFields.innerHTML = "";
+
+  const inputs = [];
+  fields.forEach((field) => {
+    const { wrapper, input } = createModalField(field);
+    actionFormFields.appendChild(wrapper);
+    inputs.push({ field, input });
+  });
+
+  return new Promise((resolve) => {
+    const handleSubmit = (event) => {
+      event.preventDefault();
+      const values = {};
+      for (const { field, input } of inputs) {
+        const rawValue = field.type === "checkbox" ? input.checked : String(input.value ?? "");
+        if (field.required && field.type !== "checkbox" && !String(rawValue).trim()) {
+          showToast(`${field.label || field.name} bos birakilamaz.`, "error");
+          input.focus();
+          return;
+        }
+        values[field.name] = field.type === "checkbox" ? Boolean(rawValue) : String(rawValue).trim();
+      }
+      closeActionFormDialog(values);
+    };
+
+    const handleBackdrop = (event) => {
+      if (event.target === actionFormModal) {
+        closeActionFormDialog(null);
+      }
+    };
+
+    const handleCancel = () => closeActionFormDialog(null);
+
+    actionFormElement.addEventListener("submit", handleSubmit);
+    actionFormModal.addEventListener("click", handleBackdrop);
+    closeActionFormModalButton?.addEventListener("click", handleCancel);
+    cancelActionFormModalButton?.addEventListener("click", handleCancel);
+
+    actionFormDialogState = {
+      resolve,
+      cleanup: () => {
+        actionFormElement.removeEventListener("submit", handleSubmit);
+        actionFormModal.removeEventListener("click", handleBackdrop);
+        closeActionFormModalButton?.removeEventListener("click", handleCancel);
+        cancelActionFormModalButton?.removeEventListener("click", handleCancel);
+      }
+    };
+
+    setModalVisibility(actionFormModal, true);
+    const firstFocusable = inputs[0]?.input;
+    if (firstFocusable) {
+      firstFocusable.focus();
+      if (typeof firstFocusable.select === "function") {
+        firstFocusable.select();
+      }
+    }
+  });
 }
 
-function promptOptional(label, currentValue) {
-  const raw = window.prompt(label, currentValue ?? "");
-  if (raw === null) return null;
-  const value = raw.trim();
-  return value || undefined;
+async function confirmAction(message, options = {}) {
+  if (!actionConfirmModal) {
+    return false;
+  }
+
+  if (actionConfirmDialogState) {
+    closeActionConfirmDialog(false);
+  }
+
+  actionConfirmTitle.textContent = options.title || "Onay";
+  actionConfirmMessage.textContent = message || "Devam etmek istiyor musunuz?";
+  if (actionConfirmApproveButton) {
+    actionConfirmApproveButton.textContent = options.confirmLabel || "Onayla";
+    actionConfirmApproveButton.className = options.confirmClassName || "btn danger";
+  }
+  if (actionConfirmCancelButton) {
+    actionConfirmCancelButton.textContent = options.cancelLabel || "Iptal";
+  }
+
+  return new Promise((resolve) => {
+    const approve = () => closeActionConfirmDialog(true);
+    const cancel = () => closeActionConfirmDialog(false);
+    const handleBackdrop = (event) => {
+      if (event.target === actionConfirmModal) {
+        closeActionConfirmDialog(false);
+      }
+    };
+
+    actionConfirmApproveButton?.addEventListener("click", approve);
+    actionConfirmCancelButton?.addEventListener("click", cancel);
+    closeActionConfirmModalButton?.addEventListener("click", cancel);
+    actionConfirmModal.addEventListener("click", handleBackdrop);
+
+    actionConfirmDialogState = {
+      resolve,
+      cleanup: () => {
+        actionConfirmApproveButton?.removeEventListener("click", approve);
+        actionConfirmCancelButton?.removeEventListener("click", cancel);
+        closeActionConfirmModalButton?.removeEventListener("click", cancel);
+        actionConfirmModal.removeEventListener("click", handleBackdrop);
+      }
+    };
+
+    setModalVisibility(actionConfirmModal, true);
+    actionConfirmApproveButton?.focus();
+  });
 }
 
-function promptYesNo(label, currentValue) {
-  const raw = window.prompt(label, currentValue ? "E" : "H");
-  if (raw === null) return null;
-  const value = raw.trim().toLowerCase();
-  if (["e", "evet", "1", "true", "aktif"].includes(value)) return true;
-  if (["h", "hayir", "0", "false", "pasif"].includes(value)) return false;
-  showToast("Lutfen E veya H girin.", "error");
-  return null;
+async function promptRequired(label, value = "", options = {}) {
+  const result = await openActionFormDialog({
+    title: options.title || "Duzenle",
+    submitLabel: options.submitLabel || "Kaydet",
+    fields: [
+      {
+        name: "value",
+        label,
+        value: value ?? "",
+        type: options.type || "text",
+        required: true,
+        placeholder: options.placeholder,
+        min: options.min,
+        max: options.max,
+        step: options.step,
+        rows: options.rows,
+        options: options.options
+      }
+    ]
+  });
+  if (!result) return null;
+  return String(result.value ?? "").trim();
+}
+
+async function promptOptional(label, value = "", options = {}) {
+  const result = await openActionFormDialog({
+    title: options.title || "Duzenle",
+    submitLabel: options.submitLabel || "Kaydet",
+    fields: [
+      {
+        name: "value",
+        label,
+        value: value ?? "",
+        type: options.type || "text",
+        required: false,
+        placeholder: options.placeholder,
+        min: options.min,
+        max: options.max,
+        step: options.step,
+        rows: options.rows,
+        options: options.options
+      }
+    ]
+  });
+  if (!result) return null;
+  return String(result.value ?? "").trim();
 }
 
 function setModalVisibility(modal, visible) {
@@ -1281,9 +1497,9 @@ function renderPriceListsTable() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Liste adi", list.name);
+            const name = await promptRequired("Liste adi", list.name);
             if (name === null) return;
-            const currency = promptRequired("Para birimi", list.currency ?? "TRY");
+            const currency = await promptRequired("Para birimi", list.currency ?? "TRY");
             if (currency === null) return;
 
             await api(`/price-lists/${list.id}`, {
@@ -1300,7 +1516,7 @@ function renderPriceListsTable() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm(`${list.name} listesi silinsin mi?`)) return;
+            if (!(await confirmAction(`${list.name} listesi silinsin mi?`))) return;
             await api(`/price-lists/${list.id}`, { method: "DELETE" });
             if (defaultPriceListId === list.id) {
               defaultPriceListId = null;
@@ -1387,12 +1603,12 @@ function renderPriceCatalogTable() {
             label: "Gram/Fiyat",
             className: "btn ghost",
             onClick: async () => {
-              const weightInput = promptRequired(
+              const weightInput = await promptRequired(
                 `${product.name} agirlik (gr)`,
                 weight.toFixed(2)
               );
               if (weightInput === null) return;
-              const listPriceInput = promptRequired(
+              const listPriceInput = await promptRequired(
                 `${product.name} liste fiyati (${selectedList.currency ?? "TRY"})`,
                 listPrice.toFixed(2)
               );
@@ -1849,11 +2065,11 @@ function renderCompanyDirectory() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Firma adi", company.name);
+            const name = await promptRequired("Firma adi", company.name);
             if (name === null) return;
-            const email = promptOptional("E-posta (opsiyonel)", company.email ?? "");
+            const email = await promptOptional("E-posta (opsiyonel)", company.email ?? "");
             if (email === null) return;
-            const phone = promptOptional("Telefon (opsiyonel)", company.phone ?? "");
+            const phone = await promptOptional("Telefon (opsiyonel)", company.phone ?? "");
             if (phone === null) return;
 
             await api(`/companies/${company.id}`, {
@@ -1875,14 +2091,14 @@ function renderCompanyDirectory() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = window.confirm(`${company.name} firmasini silmek istediginize emin misiniz?`);
+            const ok = await confirmAction(`${company.name} firmasini silmek istediginize emin misiniz?`);
             if (!ok) return;
 
             try {
               await api(`/companies/${company.id}`, { method: "DELETE" });
             } catch (error) {
               const message = parseErrorMessage(error, "Firma silinemedi.");
-              const force = window.confirm(
+              const force = await confirmAction(
                 `${message}\n\nBagli tum kayitlarla birlikte silinsin mi?`
               );
               if (!force) {
@@ -1942,16 +2158,16 @@ function renderDealerDirectory() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Bayi adi", dealer.name);
+            const name = await promptRequired("Bayi adi", dealer.name);
             if (name === null) return;
 
-            const email = promptOptional("E-posta (opsiyonel)", dealer.email ?? "");
+            const email = await promptOptional("E-posta (opsiyonel)", dealer.email ?? "");
             if (email === null) return;
-            const phone = promptOptional("Telefon (opsiyonel)", dealer.phone ?? "");
+            const phone = await promptOptional("Telefon (opsiyonel)", dealer.phone ?? "");
             if (phone === null) return;
-            const taxNumber = promptOptional("Vergi no (opsiyonel)", dealer.taxNumber ?? "");
+            const taxNumber = await promptOptional("Vergi no (opsiyonel)", dealer.taxNumber ?? "");
             if (taxNumber === null) return;
-            const address = promptOptional("Adres (opsiyonel)", dealer.address ?? "");
+            const address = await promptOptional("Adres (opsiyonel)", dealer.address ?? "");
             if (address === null) return;
 
             await api(`/dealers/${dealer.id}`, {
@@ -1969,14 +2185,14 @@ function renderDealerDirectory() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = window.confirm(`${dealer.name} bayisi silinsin mi?`);
+            const ok = await confirmAction(`${dealer.name} bayisi silinsin mi?`);
             if (!ok) return;
 
             try {
               await api(`/dealers/${dealer.id}`, { method: "DELETE" });
             } catch (error) {
               const message = parseErrorMessage(error, "Bayi silinemedi.");
-              const force = window.confirm(
+              const force = await confirmAction(
                 `${message}\n\nBagli tum kayitlarla birlikte silinsin mi?`
               );
               if (!force) {
@@ -2030,9 +2246,9 @@ async function refreshWarehouses() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Depo adi", warehouse.name);
+            const name = await promptRequired("Depo adi", warehouse.name);
             if (name === null) return;
-            const address = promptOptional("Adres (opsiyonel)", warehouse.address ?? "");
+            const address = await promptOptional("Adres (opsiyonel)", warehouse.address ?? "");
             if (address === null) return;
 
             await api(`/warehouses/${warehouse.id}`, {
@@ -2053,7 +2269,7 @@ async function refreshWarehouses() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm("Depo silinsin mi?")) return;
+            if (!(await confirmAction("Depo silinsin mi?"))) return;
             await api(`/warehouses/${warehouse.id}`, { method: "DELETE" });
             showToast("Depo silindi.");
             await refreshWarehouses();
@@ -2264,12 +2480,12 @@ async function refreshStockMovements() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm("Stok hareketi silinsin mi?")) return;
+            if (!(await confirmAction("Stok hareketi silinsin mi?"))) return;
             try {
               await api(`/stock-movements/${movement.id}`, { method: "DELETE" });
             } catch (error) {
               const message = parseErrorMessage(error, "Stok hareketi silinemedi.");
-              const force = window.confirm(`${message}\n\nZorla silmek ister misiniz?`);
+              const force = await confirmAction(`${message}\n\nZorla silmek ister misiniz?`);
               if (!force) return;
               await api(`/stock-movements/${movement.id}?force=true`, { method: "DELETE" });
             }
@@ -2329,7 +2545,7 @@ async function refreshOrders() {
               label: "Durum",
               className: "btn ghost",
               onClick: async () => {
-                const next = promptRequired(
+                const next = await promptRequired(
                   `Yeni durum (${ORDER_STATUS_OPTIONS.join(", ")})`,
                   String(order.status || "NEW")
                 );
@@ -2340,7 +2556,7 @@ async function refreshOrders() {
                   return;
                 }
 
-                const note = promptOptional("Durum notu (opsiyonel)", "");
+                const note = await promptOptional("Durum notu (opsiyonel)", "");
                 await api(`/orders/${order.id}/status`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
@@ -2678,7 +2894,7 @@ async function refreshDealerPriceLists() {
         label: "Kaldir",
         className: "btn danger",
         onClick: async () => {
-          if (!confirm("Liste kaldirilsin mi?")) return;
+          if (!(await confirmAction("Liste kaldirilsin mi?"))) return;
           await api(`/dealers/${dealerId}/price-lists/${item.priceListId}`, { method: "DELETE" });
           showToast("Liste kaldirildi.");
           await refreshDealerPriceLists();
@@ -2985,7 +3201,7 @@ async function refreshWooIntegrations() {
             label: "Tum Gecmis",
             className: "btn ghost",
             onClick: async () => {
-              const ok = window.confirm("Tum gecmis siparisler taransin mi? Bu islem daha uzun surebilir.");
+              const ok = await confirmAction("Tum gecmis siparisler taransin mi? Bu islem daha uzun surebilir.");
               if (!ok) return;
               const payload = { ...getWooSyncFilters(), fullSync: true };
               const result = await api("/integrations/" + integration.id + "/sync", {
@@ -3041,7 +3257,7 @@ async function refreshWooIntegrations() {
             label: "Sil",
             className: "btn danger",
             onClick: async () => {
-              const ok = window.confirm("Bu entegrasyon baglantisini silmek istediginize emin misiniz?");
+              const ok = await confirmAction("Bu entegrasyon baglantisini silmek istediginize emin misiniz?");
               if (!ok) return;
               await api("/dealers/" + dealerId + "/integrations/" + integration.id, { method: "DELETE" });
               showToast("Entegrasyon silindi.");
@@ -3095,7 +3311,7 @@ async function refreshGenericIntegrations() {
             label: "Sil",
             className: "btn danger",
             onClick: async () => {
-              const ok = window.confirm("Bu kanal baglantisini silmek istediginize emin misiniz?");
+              const ok = await confirmAction("Bu kanal baglantisini silmek istediginize emin misiniz?");
               if (!ok) return;
               await api("/dealers/" + dealerId + "/integrations/" + integration.id, { method: "DELETE" });
               showToast(getPlatformLabel(integration.platform) + " baglantisi silindi.");
@@ -3168,7 +3384,7 @@ async function refreshMappings() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm("Esleme silinsin mi?")) return;
+            if (!(await confirmAction("Esleme silinsin mi?"))) return;
             await api(`/mappings/${mapping.id}`, { method: "DELETE" });
             showToast("Esleme silindi.");
             await refreshMappings();
@@ -3274,13 +3490,13 @@ function renderVariantsTable() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Varyasyon adi", variant.name);
+            const name = await promptRequired("Varyasyon adi", variant.name);
             if (name === null) return;
 
-            const sku = promptOptional("SKU (opsiyonel)", variant.sku ?? "");
+            const sku = await promptOptional("SKU (opsiyonel)", variant.sku ?? "");
             if (sku === null) return;
 
-            const multiplierInput = promptRequired("Carpan", String(variant.multiplier ?? 1));
+            const multiplierInput = await promptRequired("Carpan", String(variant.multiplier ?? 1));
             if (multiplierInput === null) return;
             const multiplier = Number(multiplierInput.replace(",", "."));
             if (!Number.isFinite(multiplier) || multiplier <= 0) {
@@ -3288,7 +3504,7 @@ function renderVariantsTable() {
               return;
             }
 
-            const unitInput = promptRequired("Birim (PIECE, KG, LT)", variant.unit);
+            const unitInput = await promptRequired("Birim (PIECE, KG, LT)", variant.unit);
             if (unitInput === null) return;
             const unit = unitInput.toUpperCase();
             if (!["PIECE", "KG", "LT"].includes(unit)) {
@@ -3313,7 +3529,7 @@ function renderVariantsTable() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm(`${variant.name} varyasyonu silinsin mi?`)) return;
+            if (!(await confirmAction(`${variant.name} varyasyonu silinsin mi?`))) return;
             await api(`/variants/${variant.id}`, { method: "DELETE" });
             showToast("Varyasyon silindi.");
             await refreshVariants();
@@ -3356,7 +3572,7 @@ function renderProductTable() {
             label: "Sil",
             className: "btn danger",
             onClick: async () => {
-              if (!confirm(`${product.name} urunu silinsin mi?`)) return;
+              if (!(await confirmAction(`${product.name} urunu silinsin mi?`))) return;
               await api(`/products/${product.id}`, { method: "DELETE" });
               showToast("Urun silindi.");
               await refreshProducts();
@@ -3573,7 +3789,7 @@ async function submitManualOrder() {
   } catch (error) {
     const message = parseErrorMessage(error, "Siparis olusturulamadi.");
     if (canOverrideRiskLimit() && /risk|vade/i.test(message)) {
-      const force = window.confirm(
+      const force = await confirmAction(
         `${message}\n\nYonetici olarak risk limitini asarak siparisi kaydetmek ister misiniz?`
       );
       if (force) {
@@ -3641,7 +3857,7 @@ async function refreshCategories() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Kategori adi", category.name);
+            const name = await promptRequired("Kategori adi", category.name);
             if (name === null) return;
 
             await api(`/categories/${category.id}`, {
@@ -3660,7 +3876,7 @@ async function refreshCategories() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            if (!confirm(`${category.name} kategorisi silinsin mi?`)) return;
+            if (!(await confirmAction(`${category.name} kategorisi silinsin mi?`))) return;
             await api(`/categories/${category.id}`, { method: "DELETE" });
             showToast("Kategori silindi.");
             await refreshCategories();
@@ -3945,7 +4161,7 @@ async function refreshDispatches() {
           } catch (error) {
             const message = parseErrorMessage(error, "Sevkiyat onaylanamadi.");
             if (canOverrideRiskLimit() && /risk|vade/i.test(message)) {
-              const force = window.confirm(
+              const force = await confirmAction(
                 message + "\n\nYonetici olarak risk limitini asarak onaylamak ister misiniz?"
               );
               if (!force) {
@@ -4626,11 +4842,11 @@ async function refreshIndustryProfiles() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Profil adi", profile.name);
+            const name = await promptRequired("Profil adi", profile.name);
             if (name === null) return;
-            const description = promptOptional("Aciklama (opsiyonel)", profile.description ?? "");
+            const description = await promptOptional("Aciklama (opsiyonel)", profile.description ?? "");
             if (description === null) return;
-            const codeRaw = promptRequired(
+            const codeRaw = await promptRequired(
               "Kod (GENERIC, JEWELRY, APPAREL, LEATHER, CUSTOM)",
               profile.code
             );
@@ -4690,7 +4906,7 @@ async function refreshIndustryProfiles() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = confirm(`${profile.name} profilini silmek istediginize emin misiniz?`);
+            const ok = await confirmAction(`${profile.name} profilini silmek istediginize emin misiniz?`);
             if (!ok) return;
             await api(`/industry-profiles/${profile.id}`, { method: "DELETE" });
             showToast("Sektor profili silindi.");
@@ -4733,9 +4949,9 @@ async function refreshAttributeDefinitions() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const label = promptRequired("Alan etiketi", definition.label);
+            const label = await promptRequired("Alan etiketi", definition.label);
             if (label === null) return;
-            const helpText = promptOptional("Yardim metni (opsiyonel)", definition.helpText ?? "");
+            const helpText = await promptOptional("Yardim metni (opsiyonel)", definition.helpText ?? "");
             if (helpText === null) return;
             await api(`/attribute-definitions/${definition.id}`, {
               method: "PATCH",
@@ -4767,7 +4983,7 @@ async function refreshAttributeDefinitions() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = confirm(`${definition.label} alanini silmek istediginize emin misiniz?`);
+            const ok = await confirmAction(`${definition.label} alanini silmek istediginize emin misiniz?`);
             if (!ok) return;
             await api(`/attribute-definitions/${definition.id}`, { method: "DELETE" });
             showToast("Alan tanimi silindi.");
@@ -4807,13 +5023,13 @@ async function refreshPricingRules() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Kural adi", rule.name);
+            const name = await promptRequired("Kural adi", rule.name);
             if (name === null) return;
-            const targetType = promptRequired("Hedef tipi", rule.targetType);
+            const targetType = await promptRequired("Hedef tipi", rule.targetType);
             if (targetType === null) return;
-            const targetRef = promptOptional("Hedef referansi (opsiyonel)", rule.targetRef ?? "");
+            const targetRef = await promptOptional("Hedef referansi (opsiyonel)", rule.targetRef ?? "");
             if (targetRef === null) return;
-            const priorityRaw = promptOptional("Oncelik", String(rule.priority ?? 100));
+            const priorityRaw = await promptOptional("Oncelik", String(rule.priority ?? 100));
             if (priorityRaw === null) return;
             const priority = Number(priorityRaw || 100);
             if (!Number.isFinite(priority)) {
@@ -4856,7 +5072,7 @@ async function refreshPricingRules() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = confirm(`${rule.name} kuralini silmek istediginize emin misiniz?`);
+            const ok = await confirmAction(`${rule.name} kuralini silmek istediginize emin misiniz?`);
             if (!ok) return;
             await api(`/pricing-rules/${rule.id}`, { method: "DELETE" });
             showToast("Fiyat kurali silindi.");
@@ -4899,13 +5115,13 @@ async function refreshWorkflowTemplates() {
             label: "Duzenle",
             className: "btn ghost",
             onClick: async () => {
-              const name = promptRequired("Sablon adi", template.name);
+              const name = await promptRequired("Sablon adi", template.name);
               if (name === null) return;
-              const module = promptRequired("Modul", template.module);
+              const module = await promptRequired("Modul", template.module);
               if (module === null) return;
-              const description = promptOptional("Aciklama (opsiyonel)", template.description ?? "");
+              const description = await promptOptional("Aciklama (opsiyonel)", template.description ?? "");
               if (description === null) return;
-              const stepsRaw = promptRequired(
+              const stepsRaw = await promptRequired(
                 "Adimlar JSON",
                 JSON.stringify(template.steps ?? [], null, 2)
               );
@@ -4954,7 +5170,7 @@ async function refreshWorkflowTemplates() {
             label: "Sil",
             className: "btn danger",
             onClick: async () => {
-              const ok = confirm(`${template.name} sablonunu silmek istediginize emin misiniz?`);
+              const ok = await confirmAction(`${template.name} sablonunu silmek istediginize emin misiniz?`);
               if (!ok) return;
               await api(`/workflow-templates/${template.id}`, { method: "DELETE" });
               showToast("Workflow sablonu silindi.");
@@ -4994,11 +5210,11 @@ async function refreshReportPresets() {
           label: "Duzenle",
           className: "btn ghost",
           onClick: async () => {
-            const name = promptRequired("Preset adi", preset.name);
+            const name = await promptRequired("Preset adi", preset.name);
             if (name === null) return;
-            const description = promptOptional("Aciklama (opsiyonel)", preset.description ?? "");
+            const description = await promptOptional("Aciklama (opsiyonel)", preset.description ?? "");
             if (description === null) return;
-            const configRaw = promptRequired(
+            const configRaw = await promptRequired(
               "Config JSON",
               JSON.stringify(preset.config ?? {}, null, 2)
             );
@@ -5046,7 +5262,7 @@ async function refreshReportPresets() {
           label: "Sil",
           className: "btn danger",
           onClick: async () => {
-            const ok = confirm(`${preset.name} presetini silmek istediginize emin misiniz?`);
+            const ok = await confirmAction(`${preset.name} presetini silmek istediginize emin misiniz?`);
             if (!ok) return;
             await api(`/report-presets/${preset.id}`, { method: "DELETE" });
             showToast("Rapor preset silindi.");
@@ -5412,7 +5628,7 @@ async function setup() {
       showToast("Lutfen once firma secin.", "error");
       return;
     }
-    const replace = confirm(
+    const replace = await confirmAction(
       "Mevcut sektor profillerini sifirlamak ister misiniz? Tamam: mevcutlari sil ve tekrar olustur, Iptal: mevcutlari koru."
     );
     await api("/industry-profiles/seed", {
@@ -5828,7 +6044,7 @@ async function setup() {
     } catch (error) {
       const message = parseErrorMessage(error, "Sevkiyat kaydedilemedi.");
       if (canOverrideRiskLimit() && /risk|vade/i.test(message)) {
-        const force = window.confirm(
+        const force = await confirmAction(
           `${message}\n\nYonetici olarak risk limitini asarak sevkiyati kaydetmek ister misiniz?`
         );
         if (!force) {
@@ -6004,7 +6220,7 @@ async function setup() {
     if (!companyId) return;
     const selected = getSelectedCompany();
     const name = selected?.name ?? "Secili firma";
-    const ok = window.confirm(`${name} firmasini silmek istediginize emin misiniz?`);
+    const ok = await confirmAction(`${name} firmasini silmek istediginize emin misiniz?`);
     if (!ok) return;
 
     try {
@@ -6015,7 +6231,7 @@ async function setup() {
       return;
     } catch (error) {
       const message = parseErrorMessage(error, "Firma silinemedi.");
-      const force = window.confirm(`${message}\n\nBagli tum kayitlarla birlikte silinsin mi?`);
+      const force = await confirmAction(`${message}\n\nBagli tum kayitlarla birlikte silinsin mi?`);
       if (!force) {
         showToast("Silme iptal edildi.", "error");
         return;

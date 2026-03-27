@@ -260,6 +260,22 @@
     </div>
     <div id="dealerMenuBackdrop" class="menu-backdrop" aria-hidden="true"></div>
 
+    <div id="dealerConfirmModal" class="modal" aria-hidden="true">
+      <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="dealerConfirmTitle">
+        <div class="modal-header">
+          <h3 id="dealerConfirmTitle">Onay</h3>
+          <button id="closeDealerConfirmModal" type="button" class="btn ghost">Kapat</button>
+        </div>
+        <div class="modal-body">
+          <p id="dealerConfirmMessage"></p>
+          <div class="row">
+            <button id="dealerConfirmApprove" class="btn danger" type="button">Onayla</button>
+            <button id="dealerConfirmCancel" class="btn ghost" type="button">Iptal</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="toast" class="toast"></div>
     <script src="/dealer.js"></script>
   </body>
