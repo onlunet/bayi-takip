@@ -659,6 +659,36 @@ function canOverrideRiskLimit() {
   return role === "OWNER" || role === "ADMIN";
 }
 
+function hasActiveAdminSession() {
+  if (!authContext?.authRequired) return false;
+  const token = getAdminAuthToken();
+  const role = normalizeRole(authContext?.role);
+  return Boolean(token && role && role !== "DEALER");
+}
+
+function updateAdminAuthControls() {
+  const authRequired = Boolean(authContext?.authRequired);
+  const isLoggedIn = hasActiveAdminSession();
+
+  const showLogin = authRequired && !isLoggedIn;
+  const showLogout = authRequired && isLoggedIn;
+
+  [adminLoginEmailInput, adminLoginPasswordInput, adminLoginButton].forEach((element) => {
+    if (!element) return;
+    element.classList.toggle("hidden", !showLogin);
+    element.disabled = !showLogin;
+  });
+
+  if (adminLogoutButton) {
+    adminLogoutButton.classList.toggle("hidden", !showLogout);
+    adminLogoutButton.disabled = !showLogout;
+  }
+
+  if (!showLogin && adminLoginPasswordInput) {
+    adminLoginPasswordInput.value = "";
+  }
+}
+
 async function refreshAuthContext() {
   try {
     const result = await api("/admin/auth/me");
@@ -677,6 +707,7 @@ async function refreshAuthContext() {
       authRequired: false
     };
   }
+  updateAdminAuthControls();
 }
 
 async function loginAdmin() {
@@ -712,6 +743,7 @@ function logoutAdmin() {
     dealerId: null,
     authRequired: true
   };
+  updateAdminAuthControls();
   applyRoleVisibility();
 }
 
@@ -5110,6 +5142,8 @@ async function refreshAll() {
   applyRoleVisibility();
 }
 async function setup() {
+  updateAdminAuthControls();
+
   adminLoginButton?.addEventListener("click", async () => {
     try {
       await loginAdmin();
